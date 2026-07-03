@@ -1,1 +1,0 @@
-mongodb://rajdip:123rajdip@ac-wsuvl3n-shard-00-00.plblbaz.mongodb.net:27017,ac-wsuvl3n-shard-00-01.plblbaz.mongodb.net:27017,ac-wsuvl3n-shard-00-02.plblbaz.mongodb.net:27017/easy-key-points-test?ssl=true&replicaSet=atlas-urupai-shard-0&authSource=admin&appName=Cluster0
