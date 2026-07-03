@@ -29,6 +29,20 @@ const GlobalLoader = () => {
     const originalFetch = window.fetch;
 
     window.fetch = async (...args) => {
+      const input = args[0];
+      const urlStr = typeof input === 'string' ? input : (input instanceof Request ? input.url : '');
+      const isBackground =
+        urlStr.includes('/comments') ||
+        urlStr.includes('/read') ||
+        urlStr.includes('/status-override') ||
+        urlStr.includes('/notifications') ||
+        urlStr.includes('/presence') ||
+        urlStr.includes('/typing');
+
+      if (isBackground) {
+        return originalFetch(...args);
+      }
+
       setActiveRequests((prev) => prev + 1);
 
       let targetBtn = null;

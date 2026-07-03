@@ -54,6 +54,16 @@ const TasksTab = ({ onOpenThread, allUsers = [], highlightedTaskId, clearHighlig
   const [activeMenuId, setActiveMenuId] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [activeHighlightId, setActiveHighlightId] = useState(null);
+  const [activeStatusTab, setActiveStatusTab] = useState('pending');
+
+  useEffect(() => {
+    if (highlightedTaskId && tasks.length > 0) {
+      const targetTask = tasks.find(t => String(t._id) === String(highlightedTaskId));
+      if (targetTask && targetTask.status) {
+        setActiveStatusTab(targetTask.status);
+      }
+    }
+  }, [highlightedTaskId, tasks]);
 
   useEffect(() => {
     const handleGlobalClick = () => setActiveMenuId(null);
@@ -229,50 +239,54 @@ const TasksTab = ({ onOpenThread, allUsers = [], highlightedTaskId, clearHighlig
           </span>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {COLUMNS.map((col) => {
-            const list = byStatus[col];
-            const meta = STATUS_META[col];
-            const Icon = meta.icon;
-            return (
-              <section key={col} className="flex flex-col gap-3">
-                <header className="flex items-center justify-between px-1">
-                  <div className="flex items-center gap-2">
-                    <Icon className={`h-4 w-4 ${meta.laneAccent}`} aria-hidden="true" />
-                    <span className="text-[13px] tracking-tight text-ink">{meta.label}</span>
-                  </div>
-                  <span className="text-[11px] tracking-tight text-ink-muted">{list.length}</span>
-                </header>
+        <div className="flex flex-col gap-6">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-5 px-5 md:mx-0 md:px-0 no-scrollbar">
+            <div className="flex items-center gap-1 surface-1 rounded-pill p-1 border border-hairline-soft w-fit">
+              {COLUMNS.map((col) => {
+                const meta = STATUS_META[col];
+                const Icon = meta.icon;
+                const count = byStatus[col].length;
+                return (
+                  <button
+                    key={col}
+                    onClick={() => setActiveStatusTab(col)}
+                    className={`pill-tab ${activeStatusTab === col ? 'is-active' : ''}`}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {meta.label}
+                    <span className="text-[10px] text-ink-dim ml-1.5 tabular-nums">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-                <div className="surface-1 rounded-xl p-2 min-h-[320px] flex flex-col gap-2 border border-hairline-soft">
-                  {list.length === 0 ? (
-                    <p className="my-auto text-center text-[12px] text-ink-muted italic py-6">
-                      Empty
-                    </p>
-                  ) : (
-                    list.map((t) => (
-                      <TaskCard
-                        key={t._id}
-                        task={t}
-                        col={col}
-                        meta={meta}
-                        currentUser={user}
-                        activeMenuId={activeMenuId}
-                        setActiveMenuId={setActiveMenuId}
-                        onEdit={() => setEditingTask(t)}
-                        onDelete={() => setDeleteConfirmId(t._id)}
-                        allUsers={allUsers}
-                        onDiscuss={() => onOpenThread({ type: 'discussion_task', id: t._id })}
-                        onAdvance={(e) => updateStatus(e, t._id, col, 'forward')}
-                        onBack={(e) => updateStatus(e, t._id, col, 'back')}
-                        isHighlighted={t._id === activeHighlightId}
-                      />
-                    ))
-                  )}
-                </div>
-              </section>
-            );
-          })}
+          {byStatus[activeStatusTab].length === 0 ? (
+            <div className="surface-1 border border-hairline-soft rounded-xl p-10 text-[13px] text-ink-muted italic text-center">
+              No tasks in {STATUS_META[activeStatusTab].label.toLowerCase()} yet.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {byStatus[activeStatusTab].map((t) => (
+                <TaskCard
+                  key={t._id}
+                  task={t}
+                  col={activeStatusTab}
+                  meta={STATUS_META[activeStatusTab]}
+                  currentUser={user}
+                  activeMenuId={activeMenuId}
+                  setActiveMenuId={setActiveMenuId}
+                  onEdit={() => setEditingTask(t)}
+                  onDelete={() => setDeleteConfirmId(t._id)}
+                  allUsers={allUsers}
+                  onDiscuss={() => onOpenThread({ type: 'discussion_task', id: t._id })}
+                  onAdvance={(e) => updateStatus(e, t._id, activeStatusTab, 'forward')}
+                  onBack={(e) => updateStatus(e, t._id, activeStatusTab, 'back')}
+                  isHighlighted={t._id === activeHighlightId}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -606,14 +620,7 @@ const TaskCard = ({ task, col, meta, currentUser, activeMenuId, setActiveMenuId,
         )}
       </div>
 
-      <div className="flex items-center gap-2">
-        <span
-          className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-pill border text-[10px] uppercase tracking-[0.12em] font-medium ${meta.chipClass}`}
-        >
-          <StatusIcon className="h-3 w-3" aria-hidden="true" />
-          {meta.label}
-        </span>
-      </div>
+
 
       <p className="text-[12px] text-ink-muted line-clamp-2 leading-relaxed tracking-tight break-words">
         {parseMentions(task.description)}

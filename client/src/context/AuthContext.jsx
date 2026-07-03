@@ -78,6 +78,23 @@ export const AuthProvider = ({ children }) => {
     }
   }, [token]);
 
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'token') {
+        if (!e.newValue) {
+          setToken(null);
+          setUser(null);
+          setIs2faPending(false);
+          setTwoFactorSetupData(null);
+        } else if (e.newValue !== token) {
+          setToken(e.newValue);
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [token]);
+
   const register = async (email, username, password) => {
     try {
       const response = await fetch(`${API_URL}/api/auth/register`, {

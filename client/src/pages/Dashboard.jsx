@@ -184,8 +184,10 @@ const TopBar = ({ user, onlineUsers, notifications, onNotifClick, onMarkAll, onL
       </div>
 
       <div className="flex items-center gap-4">
-        <OnlineAvatars onlineUsers={onlineUsers} currentUserId={user?._id || user?.id} />
-        <div className="divider-v h-6" />
+        <div className="hidden sm:block">
+          <OnlineAvatars onlineUsers={onlineUsers} currentUserId={user?._id || user?.id} />
+        </div>
+        <div className="hidden sm:block divider-v h-6" />
         <div className="relative" ref={notifRef}>
           <button
             onClick={() => setShowNotifs((v) => !v)}
@@ -296,11 +298,13 @@ const MobileNav = ({ activeTab, onSelectTab, user }) => (
         <button
           key={key}
           onClick={() => onSelectTab(key)}
-          className={`flex items-center gap-1.5 px-3 py-2 rounded-pill text-[12px] tracking-tight transition-colors ${active ? 'bg-canvas text-ink' : 'text-ink-muted'
-            }`}
+          className={`flex items-center justify-center w-10 h-10 rounded-full transition-all ${
+            active ? 'bg-accent/15 text-accent font-semibold scale-110' : 'text-ink-muted hover:text-ink'
+          }`}
+          title={displayLabel}
+          aria-label={displayLabel}
         >
-          <Icon className="h-4 w-4" />
-          <span>{displayLabel}</span>
+          <Icon className="h-5 w-5" />
         </button>
       );
     })}
