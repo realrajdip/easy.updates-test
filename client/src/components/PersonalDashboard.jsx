@@ -7,7 +7,13 @@ import { useSocket } from '../context/SocketContext';
 import { useToast } from '../context/ToastContext';
 import { API_URL } from '../config';
 
-const PersonalDashboard = ({ onOpenThread }) => {
+const toArray = (v) => {
+  if (!v) return [];
+  if (Array.isArray(v)) return v.filter(Boolean);
+  return [v];
+};
+
+const PersonalDashboard = ({ onOpenThread, allUsers = [] }) => {
   const { token, user } = useAuth();
   const { socket } = useSocket();
   const toast = useToast();
@@ -91,10 +97,31 @@ const PersonalDashboard = ({ onOpenThread }) => {
   };
 
   const currentUserId = user?.id || user?._id;
-  const my = updates.filter((u) => {
-    const assignedId = u.assignedTo?._id || u.assignedTo;
-    return !assignedId || assignedId === currentUserId;
-  });
+
+  const isRelevantToMe = (u) => {
+    const assignees = toArray(u.assignedTo);
+    if (assignees.length === 0) return true; // whole team
+    return assignees.some((a) => (a._id || a) === currentUserId);
+  };
+
+  const isFullyAcknowledged = (u) => {
+    const assignees = toArray(u.assignedTo);
+    const ackIds = u.acknowledgedBy.map((a) => (a._id || a));
+    if (assignees.length > 0) {
+      return assignees.every((assignee) => {
+        const assigneeId = assignee._id || assignee;
+        return ackIds.includes(assigneeId);
+      });
+    } else {
+      if (allUsers.length === 0) return false;
+      return allUsers.every((user) => {
+        const userId = user._id || user;
+        return ackIds.includes(userId);
+      });
+    }
+  };
+
+  const my = updates.filter((u) => isRelevantToMe(u) && !isFullyAcknowledged(u));
   const pending = my.filter((u) => {
     const creatorId = u.creator?._id || u.creator;
     return creatorId !== currentUserId && !u.acknowledgedBy.some((a) => (a._id || a) === currentUserId);

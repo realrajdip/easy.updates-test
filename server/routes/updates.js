@@ -99,9 +99,9 @@ router.post('/', protect, async (req, res) => {
 
     const savedUpdate = await newUpdate.save();
     const populatedUpdate = await Update.findById(savedUpdate._id)
-      .populate('creator', 'username avatarColor')
-      .populate('assignedTo', 'username avatarColor')
-      .populate('acknowledgedBy', 'username avatarColor');
+      .populate('creator', 'username avatarColor status lastSeen')
+      .populate('assignedTo', 'username avatarColor status lastSeen')
+      .populate('acknowledgedBy', 'username avatarColor status lastSeen');
 
     const io = req.app.get('socketio');
     if (io) io.emit('update:new', populatedUpdate);
@@ -157,9 +157,9 @@ router.get('/', protect, async (req, res) => {
 
   try {
     const updates = await Update.find()
-      .populate('creator', 'username avatarColor')
-      .populate('assignedTo', 'username avatarColor')
-      .populate('acknowledgedBy', 'username avatarColor')
+      .populate('creator', 'username avatarColor status lastSeen')
+      .populate('assignedTo', 'username avatarColor status lastSeen')
+      .populate('acknowledgedBy', 'username avatarColor status lastSeen')
       .sort({ isPinned: -1, createdAt: -1 });
 
     res.json(updates);
@@ -179,9 +179,9 @@ router.get('/:id', protect, async (req, res) => {
 
   try {
     const update = await Update.findById(req.params.id)
-      .populate('creator', 'username avatarColor')
-      .populate('assignedTo', 'username avatarColor')
-      .populate('acknowledgedBy', 'username avatarColor');
+      .populate('creator', 'username avatarColor status lastSeen')
+      .populate('assignedTo', 'username avatarColor status lastSeen')
+      .populate('acknowledgedBy', 'username avatarColor status lastSeen');
 
     if (!update) {
       return res.status(404).json({ message: 'Update not found' });
@@ -225,15 +225,22 @@ router.put('/:id', protect, async (req, res) => {
     update.assignedTo = newAssignedTo;
     if (isRecurring !== undefined) update.isRecurring = isRecurring;
     if (recurrenceRule !== undefined) update.recurrenceRule = recurrenceRule === 'none' ? 'none' : recurrenceRule;
-    if (eta !== undefined) update.eta = eta || null;
+    if (eta !== undefined) {
+      const oldEtaStr = update.eta ? new Date(update.eta).toISOString() : '';
+      const newEtaStr = eta ? new Date(eta).toISOString() : '';
+      if (oldEtaStr !== newEtaStr) {
+        update.etaNotificationSent = false;
+      }
+      update.eta = eta || null;
+    }
     if (isPinned !== undefined) update.isPinned = isPinned;
 
     await update.save();
 
     const populatedUpdate = await Update.findById(req.params.id)
-      .populate('creator', 'username avatarColor')
-      .populate('assignedTo', 'username avatarColor')
-      .populate('acknowledgedBy', 'username avatarColor');
+      .populate('creator', 'username avatarColor status lastSeen')
+      .populate('assignedTo', 'username avatarColor status lastSeen')
+      .populate('acknowledgedBy', 'username avatarColor status lastSeen');
 
     const io = req.app.get('socketio');
 
@@ -315,9 +322,9 @@ router.put('/:id/pin', protect, async (req, res) => {
     await update.save();
 
     const populatedUpdate = await Update.findById(req.params.id)
-      .populate('creator', 'username avatarColor')
-      .populate('assignedTo', 'username avatarColor')
-      .populate('acknowledgedBy', 'username avatarColor');
+      .populate('creator', 'username avatarColor status lastSeen')
+      .populate('assignedTo', 'username avatarColor status lastSeen')
+      .populate('acknowledgedBy', 'username avatarColor status lastSeen');
 
     const io = req.app.get('socketio');
     if (io) io.emit('update:edited', populatedUpdate);
@@ -349,9 +356,9 @@ router.post('/:id/acknowledge', protect, async (req, res) => {
     }
 
     const populatedUpdate = await Update.findById(req.params.id)
-      .populate('creator', 'username avatarColor')
-      .populate('assignedTo', 'username avatarColor')
-      .populate('acknowledgedBy', 'username avatarColor');
+      .populate('creator', 'username avatarColor status lastSeen')
+      .populate('assignedTo', 'username avatarColor status lastSeen')
+      .populate('acknowledgedBy', 'username avatarColor status lastSeen');
 
     const io = req.app.get('socketio');
     if (io) io.emit('update:acknowledged', populatedUpdate);
@@ -373,9 +380,9 @@ router.get('/:id/comments', protect, async (req, res) => {
 
   try {
     const comments = await Comment.find({ updateId: req.params.id })
-      .populate('author', 'username avatarColor')
-      .populate('reactions.user', 'username avatarColor')
-      .populate('readBy', 'username avatarColor')
+      .populate('author', 'username avatarColor status lastSeen')
+      .populate('reactions.user', 'username avatarColor status lastSeen')
+      .populate('readBy', 'username avatarColor status lastSeen')
       .sort({ createdAt: 1 });
 
     res.json(comments);
@@ -419,10 +426,10 @@ router.post('/:id/comments', protect, async (req, res) => {
     await comment.save();
 
     const populatedComment = await Comment.findById(comment._id)
-      .populate('author', 'username avatarColor')
+      .populate('author', 'username avatarColor status lastSeen')
       .populate('mentions', 'username')
-      .populate('reactions.user', 'username avatarColor')
-      .populate('readBy', 'username avatarColor');
+      .populate('reactions.user', 'username avatarColor status lastSeen')
+      .populate('readBy', 'username avatarColor status lastSeen');
 
     const io = req.app.get('socketio');
 
@@ -437,9 +444,9 @@ router.post('/:id/comments', protect, async (req, res) => {
 
       // Emit updated update so all clients refresh the assignee list live
       const updatedUpdate = await Update.findById(update._id)
-        .populate('creator', 'username avatarColor')
-        .populate('assignedTo', 'username avatarColor')
-        .populate('acknowledgedBy', 'username avatarColor');
+        .populate('creator', 'username avatarColor status lastSeen')
+        .populate('assignedTo', 'username avatarColor status lastSeen')
+        .populate('acknowledgedBy', 'username avatarColor status lastSeen');
       if (io) io.emit('update:edited', updatedUpdate);
 
       // Notify newly-added members
@@ -536,10 +543,10 @@ router.put('/comments/:commentId', protect, async (req, res) => {
     await comment.save();
 
     const populated = await Comment.findById(comment._id)
-      .populate('author', 'username avatarColor')
+      .populate('author', 'username avatarColor status lastSeen')
       .populate('mentions', 'username')
-      .populate('reactions.user', 'username avatarColor')
-      .populate('readBy', 'username avatarColor');
+      .populate('reactions.user', 'username avatarColor status lastSeen')
+      .populate('readBy', 'username avatarColor status lastSeen');
 
     const io = req.app.get('socketio');
     if (io) {
@@ -579,10 +586,10 @@ router.delete('/comments/:commentId', protect, async (req, res) => {
     await comment.save();
 
     const populated = await Comment.findById(comment._id)
-      .populate('author', 'username avatarColor')
+      .populate('author', 'username avatarColor status lastSeen')
       .populate('mentions', 'username')
-      .populate('reactions.user', 'username avatarColor')
-      .populate('readBy', 'username avatarColor');
+      .populate('reactions.user', 'username avatarColor status lastSeen')
+      .populate('readBy', 'username avatarColor status lastSeen');
 
     const io = req.app.get('socketio');
     if (io) {
@@ -631,10 +638,10 @@ router.post('/comments/:commentId/react', protect, async (req, res) => {
     await comment.save();
 
     const populated = await Comment.findById(comment._id)
-      .populate('author', 'username avatarColor')
+      .populate('author', 'username avatarColor status lastSeen')
       .populate('mentions', 'username')
-      .populate('reactions.user', 'username avatarColor')
-      .populate('readBy', 'username avatarColor');
+      .populate('reactions.user', 'username avatarColor status lastSeen')
+      .populate('readBy', 'username avatarColor status lastSeen');
 
     const io = req.app.get('socketio');
     if (io) {

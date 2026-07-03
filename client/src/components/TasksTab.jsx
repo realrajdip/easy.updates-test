@@ -10,6 +10,7 @@ import { useToast } from '../context/ToastContext';
 import { API_URL } from '../config';
 import UserAvatar from './UserAvatar';
 import Modal, { useModalTitleId } from './Modal';
+import DateTimePicker from './DateTimePicker';
 
 /* ── Helper: normalise assignedTo to always be an array ─────────────────── */
 const toArray = (v) => {
@@ -41,7 +42,7 @@ const STATUS_META = {
 
 const COLUMNS = ['pending', 'in_progress', 'completed'];
 
-const TasksTab = ({ onOpenThread, allUsers = [] }) => {
+const TasksTab = ({ onOpenThread, allUsers = [], highlightedTaskId, clearHighlight }) => {
   const { token, user } = useAuth();
   const { socket } = useSocket();
   const toast = useToast();
@@ -52,12 +53,37 @@ const TasksTab = ({ onOpenThread, allUsers = [] }) => {
 
   const [activeMenuId, setActiveMenuId] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [activeHighlightId, setActiveHighlightId] = useState(null);
 
   useEffect(() => {
     const handleGlobalClick = () => setActiveMenuId(null);
     if (activeMenuId) window.addEventListener('click', handleGlobalClick);
     return () => window.removeEventListener('click', handleGlobalClick);
   }, [activeMenuId]);
+
+  // Handle scrolling and temporary highlight when highlightedTaskId is provided
+  useEffect(() => {
+    if (highlightedTaskId) {
+      setActiveHighlightId(highlightedTaskId);
+
+      const scrollTimer = setTimeout(() => {
+        const element = document.getElementById(`task-${highlightedTaskId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 150);
+
+      const timer = setTimeout(() => {
+        setActiveHighlightId(null);
+        if (clearHighlight) clearHighlight();
+      }, 3000);
+
+      return () => {
+        clearTimeout(scrollTimer);
+        clearTimeout(timer);
+      };
+    }
+  }, [highlightedTaskId]); // eslint-disable-line
 
   const fetchTasks = async () => {
     setLoading(true);
@@ -239,6 +265,7 @@ const TasksTab = ({ onOpenThread, allUsers = [] }) => {
                         onDiscuss={() => onOpenThread({ type: 'discussion_task', id: t._id })}
                         onAdvance={(e) => updateStatus(e, t._id, col, 'forward')}
                         onBack={(e) => updateStatus(e, t._id, col, 'back')}
+                        isHighlighted={t._id === activeHighlightId}
                       />
                     ))
                   )}
@@ -507,7 +534,7 @@ const MemberPicker = ({ value = [], onChange, allUsers, label = 'Assign to' }) =
 };
 
 /* ─── Task card ─────────────────────────────────────────────────────────── */
-const TaskCard = ({ task, col, meta, currentUser, activeMenuId, setActiveMenuId, onEdit, onDelete, allUsers, onDiscuss, onAdvance, onBack }) => {
+const TaskCard = ({ task, col, meta, currentUser, activeMenuId, setActiveMenuId, onEdit, onDelete, allUsers, onDiscuss, onAdvance, onBack, isHighlighted }) => {
   const StatusIcon = meta.icon;
   const isMenuOpen = activeMenuId === task._id;
   const canEdit = task.creator?._id === currentUser?.id || ['admin', 'super_user'].includes(currentUser?.role);
@@ -532,7 +559,14 @@ const TaskCard = ({ task, col, meta, currentUser, activeMenuId, setActiveMenuId,
   };
 
   return (
-    <article className="surface-2 rounded-lg p-3 flex flex-col gap-3 hover:bg-surface-3 transition-colors relative">
+    <article
+      id={`task-${task._id}`}
+      className={`surface-2 rounded-lg p-3 flex flex-col gap-3 hover:bg-surface-3 transition-colors relative border ${
+        isHighlighted
+          ? 'border-accent shadow-[0_0_0_3px_rgba(0,153,255,0.25)] ring-2 ring-accent'
+          : 'border-transparent'
+      }`}
+    >
       <div className="flex items-start justify-between gap-2">
         <h3 className="text-[14px] text-ink tracking-tight font-medium leading-snug min-w-0 flex-1 pr-6">
           {task.title}
@@ -856,13 +890,11 @@ const ComposeBody = ({
         />
 
         <Field label="Due" optional icon={Clock}>
-          <input
-            type="datetime-local"
+          <DateTimePicker
             value={eta}
+            onChange={setEta}
             min={minEta}
-            onChange={(e) => setEta(e.target.value)}
-            className="input"
-            style={{ colorScheme: 'dark' }}
+            optional
           />
         </Field>
       </div>

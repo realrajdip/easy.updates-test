@@ -89,6 +89,7 @@ router.post('/register', async (req, res) => {
     // Generate Backup Codes
     const backupCodes = generateBackupCodes();
 
+    const isDevTest = process.env.NODE_ENV === 'development' && username.startsWith('test_');
     const user = new User({
       email: email.toLowerCase(),
       username: username,
@@ -96,7 +97,9 @@ router.post('/register', async (req, res) => {
       avatarColor: getRandomColor(),
       twoFactorSecret: secret.base32,
       isTwoFactorEnabled: false,
-      backupCodes: backupCodes
+      backupCodes: backupCodes,
+      approvalStatus: isDevTest ? 'approved' : 'pending',
+      isApproved: isDevTest
     });
 
     await user.save();

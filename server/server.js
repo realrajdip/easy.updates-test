@@ -81,7 +81,11 @@ mongoose.connect(MONGODB_URI)
     console.log('MongoDB connected successfully.');
     
     // Initialize Socket.io presence on Server
-    initSocket(server, app);
+    const io = initSocket(server, app);
+
+    // Start background ETA notification checker
+    const { startEtaNotifier } = require('./services/etaNotifier');
+    startEtaNotifier(io);
 
     // Start Server
     server.listen(PORT, () => {

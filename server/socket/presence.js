@@ -72,16 +72,20 @@ const initSocket = (server, app) => {
           userId,
           { status: 'online', currentPage: 'Home', currentAction: 'Viewing Dashboard' },
           { new: true }
-        ).select('username avatarColor status lastSeen currentPage currentAction');
+        ).select('username avatarColor status statusOverride lastSeen currentPage currentAction');
 
-        io.emit('presence:online', user);
+        if (user.statusOverride === 'offline') {
+          io.emit('presence:offline', { _id: user._id, lastSeen: user.lastSeen });
+        } else {
+          io.emit('presence:online', user);
+        }
       } catch (err) {
         console.error('Error updating presence online status:', err);
       }
     } else {
       // Send current state to newly connected client
       try {
-        const user = await User.findById(userId).select('username avatarColor status lastSeen currentPage currentAction');
+        const user = await User.findById(userId).select('username avatarColor status statusOverride lastSeen currentPage currentAction');
         socket.emit('presence:self', user);
       } catch (err) {
         console.error('Error sending presence state to self:', err);
@@ -92,8 +96,9 @@ const initSocket = (server, app) => {
     try {
       const onlineUsers = await User.find({ 
         status: 'online',
+        statusOverride: { $ne: 'offline' },
         $or: [{ approvalStatus: 'approved' }, { isApproved: true }]
-      }).select('username avatarColor status lastSeen currentPage currentAction');
+      }).select('username avatarColor status statusOverride lastSeen currentPage currentAction');
       socket.emit('presence:list', onlineUsers);
     } catch (err) {
       console.error('Error fetching online users list:', err);
@@ -136,11 +141,14 @@ const initSocket = (server, app) => {
           userId,
           { currentPage: page || '', currentAction: action || '' },
           { new: true }
-        ).select('username avatarColor status lastSeen currentPage currentAction');
+        ).select('username avatarColor status statusOverride lastSeen currentPage currentAction');
 
         if (user) {
-          // Broadcast presence update
-          io.emit('presence:update', user);
+          if (user.statusOverride === 'offline') {
+            io.emit('presence:offline', { _id: user._id, lastSeen: user.lastSeen });
+          } else {
+            io.emit('presence:update', user);
+          }
         }
       } catch (err) {
         console.error('Error updating user activity:', err);

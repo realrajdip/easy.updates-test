@@ -27,6 +27,10 @@ const TaskSchema = new mongoose.Schema({
   eta: {
     type: Date,
     default: null
+  },
+  etaNotificationSent: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 

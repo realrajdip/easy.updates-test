@@ -58,6 +58,11 @@ const UserSchema = new mongoose.Schema({
     enum: ['user', 'admin', 'super_user'],
     default: 'user'
   },
+  statusOverride: {
+    type: String,
+    enum: ['none', 'offline'],
+    default: 'none'
+  },
   approvalStatus: {
     type: String,
     enum: ['pending', 'approved', 'rejected'],

@@ -86,4 +86,55 @@ router.put('/profile', protect, async (req, res) => {
   }
 });
 
+// @route   PUT api/users/status-override
+// @desc    Update manual status override (none / offline)
+// @access  Private
+router.put('/status-override', protect, async (req, res) => {
+  if (req.is2faPending) {
+    return res.status(403).json({ message: '2FA authentication pending' });
+  }
+
+  const { statusOverride } = req.body;
+  if (!['none', 'offline'].includes(statusOverride)) {
+    return res.status(400).json({ message: 'Invalid status override value' });
+  }
+
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { statusOverride },
+      { new: true }
+    ).select('-password');
+
+    // Broadcast presence update via socket
+    const io = req.app.get('socketio');
+    if (io) {
+      const socketPayload = {
+        _id: user._id,
+        username: user.username,
+        avatarColor: user.avatarColor,
+        status: statusOverride === 'offline' ? 'offline' : user.status,
+        statusOverride: user.statusOverride,
+        lastSeen: user.lastSeen,
+        currentPage: user.currentPage,
+        currentAction: user.currentAction
+      };
+      io.emit('presence:update', socketPayload);
+    }
+
+    res.json({
+      id: user._id,
+      email: user.email,
+      username: user.username,
+      avatarColor: user.avatarColor,
+      isTwoFactorEnabled: user.isTwoFactorEnabled,
+      role: user.role,
+      statusOverride: user.statusOverride
+    });
+  } catch (error) {
+    console.error('Update status override error:', error);
+    res.status(500).json({ message: 'Server error updating status override' });
+  }
+});
+
 module.exports = router;

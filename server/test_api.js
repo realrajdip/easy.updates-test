@@ -11,10 +11,10 @@ const runTests = async () => {
 
   // 1. Test Registration
   try {
-    const registerRes = await fetch('http://localhost:5050/api/auth/register', {
+    const registerRes = await fetch('http://localhost:5000/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ email: `${username}@example.com`, username, password })
     });
     
     if (registerRes.status !== 201) {
@@ -41,7 +41,7 @@ const runTests = async () => {
     });
     console.log('Generated OTP Code:', otp);
 
-    const verifyRes = await fetch('http://localhost:5050/api/auth/2fa/verify', {
+    const verifyRes = await fetch('http://localhost:5000/api/auth/2fa/verify', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -65,7 +65,7 @@ const runTests = async () => {
   // 3. Test Login
   let loginToken = '';
   try {
-    const loginRes = await fetch('http://localhost:5050/api/auth/login', {
+    const loginRes = await fetch('http://localhost:5000/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
@@ -91,7 +91,7 @@ const runTests = async () => {
     const selectedBackupCode = backupCodes[0];
     console.log('Attempting login using backup code:', selectedBackupCode);
 
-    const backupVerifyRes = await fetch('http://localhost:5050/api/auth/2fa/backup-verify', {
+    const backupVerifyRes = await fetch('http://localhost:5000/api/auth/2fa/backup-verify', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -115,7 +115,7 @@ const runTests = async () => {
 
   // 5. Test Update Creation (Secure route validation)
   try {
-    const updateRes = await fetch('http://localhost:5050/api/updates', {
+    const updateRes = await fetch('http://localhost:5000/api/updates', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

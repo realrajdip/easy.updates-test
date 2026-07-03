@@ -15,6 +15,7 @@ import UserAvatar, { UserPresenceCard } from '../components/UserAvatar';
 import AdminPanel from '../components/AdminPanel';
 import SettingsTab from '../components/SettingsTab';
 import CoursesTab from '../components/CoursesTab';
+import Select from '../components/Select';
 
 /* ─── Notifications panel ─────────────────────────────────────────────── */
 const NotificationPanel = ({ notifications, onNotifClick, onMarkAll, onClose }) => {
@@ -225,7 +226,7 @@ const NAV_ITEMS = [
   { key: 'settings', label: 'Settings', icon: Settings },
 ];
 
-const Sidebar = ({ activeTab, onSelectTab, user }) => (
+const Sidebar = ({ activeTab, onSelectTab, user, onStatusOverrideChange }) => (
   <aside
     className="hidden md:flex flex-col gap-6 border-r border-hairline-soft select-none
                sticky top-14 self-start h-[calc(100vh-3.5rem)] overflow-y-auto
@@ -233,12 +234,21 @@ const Sidebar = ({ activeTab, onSelectTab, user }) => (
   >
     {/* Profile */}
     <div className="surface-1 rounded-xl p-3 flex items-center gap-3">
-      <UserAvatar user={user} size="md" showDot noTooltip />
-      <div className="min-w-0">
+      <UserAvatar user={user} size="md" noTooltip />
+      <div className="min-w-0 flex-1">
         <p className="text-[13px] tracking-tight text-ink font-medium truncate">
           @{user?.username}
         </p>
-        <p className="text-[10px] text-success font-medium tracking-tight">Available</p>
+        <Select
+          value={user?.statusOverride || 'none'}
+          onChange={onStatusOverrideChange}
+          options={[
+            { value: 'none', label: 'Available' },
+            { value: 'offline', label: 'Appear Offline' }
+          ]}
+          className="bg-transparent text-[10px] font-semibold text-ink-dim hover:text-ink transition-colors flex items-center gap-1 cursor-pointer select-none border-none p-0 focus:outline-none"
+          activeClassName="text-ink"
+        />
       </div>
     </div>
 
@@ -299,7 +309,7 @@ const MobileNav = ({ activeTab, onSelectTab, user }) => (
 
 /* ─── Dashboard ────────────────────────────────────────────────────────── */
 const Dashboard = () => {
-  const { token, user, logout } = useAuth();
+  const { token, user, logout, updateUserPartial } = useAuth();
   const {
     onlineUsers,
     notifications,
@@ -311,6 +321,8 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('updates');
   const [threadDetails, setThreadDetails] = useState(null);
   const [allUsers, setAllUsers] = useState([]);
+  const [highlightedUpdateId, setHighlightedUpdateId] = useState(null);
+  const [highlightedTaskId, setHighlightedTaskId] = useState(null);
 
   const fetchAllUsers = async () => {
     try {
@@ -349,19 +361,54 @@ const Dashboard = () => {
   const handleSelectTab = (tab) => {
     setActiveTab(tab);
     setThreadDetails(null);
+    setHighlightedUpdateId(null);
+    setHighlightedTaskId(null);
   };
   const handleOpenThread = (data) => setThreadDetails(data);
 
   const handleNotifClick = (notif) => {
     markNotificationRead(notif._id);
+    const msg = (notif.message || '').toLowerCase();
+    const isDiscussion = msg.includes('thread') || msg.includes('comment') || msg.includes('replied');
+
     if (notif.updateId) {
-      handleSelectTab('updates');
-      handleOpenThread({ type: 'discussion_update', id: notif.updateId });
+      setHighlightedUpdateId(notif.updateId);
+      setActiveTab('updates');
+      if (isDiscussion) {
+        setThreadDetails({ type: 'discussion_update', id: notif.updateId });
+      } else {
+        setThreadDetails(null);
+      }
     } else if (notif.taskId) {
-      handleSelectTab('tasks');
-      handleOpenThread({ type: 'discussion_task', id: notif.taskId });
+      setHighlightedTaskId(notif.taskId);
+      setActiveTab('tasks');
+      if (isDiscussion) {
+        setThreadDetails({ type: 'discussion_task', id: notif.taskId });
+      } else {
+        setThreadDetails(null);
+      }
     } else if (notif.courseId) {
       handleSelectTab('courses');
+    }
+  };
+
+  const handleStatusOverrideChange = async (val) => {
+    try {
+      const res = await fetch(`${API_URL}/api/users/status-override`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ statusOverride: val })
+      });
+      if (!res.ok) throw new Error('Failed to update status');
+      const updatedUser = await res.json();
+      updateUserPartial(updatedUser);
+      toast.success(val === 'offline' ? 'Status set to Appear Offline' : 'Status set to Available');
+    } catch (err) {
+      console.error(err);
+      toast.error('Could not update status.');
     }
   };
 
@@ -377,13 +424,32 @@ const Dashboard = () => {
       />
 
       <div className="flex-1 max-w-[1280px] w-full mx-auto grid grid-cols-1 md:grid-cols-[230px_1fr]">
-        <Sidebar activeTab={activeTab} onSelectTab={handleSelectTab} user={user} />
+        <Sidebar
+          activeTab={activeTab}
+          onSelectTab={handleSelectTab}
+          user={user}
+          onStatusOverrideChange={handleStatusOverrideChange}
+        />
 
         <main className="flex-1 px-5 md:px-8 py-8 pb-24 md:pb-8 min-w-0">
-          {activeTab === 'updates' && <UpdatesTab onOpenThread={handleOpenThread} allUsers={allUsers} />}
-          {activeTab === 'tasks' && <TasksTab onOpenThread={handleOpenThread} allUsers={allUsers} />}
+          {activeTab === 'updates' && (
+            <UpdatesTab
+              onOpenThread={handleOpenThread}
+              allUsers={allUsers}
+              highlightedUpdateId={highlightedUpdateId}
+              clearHighlight={() => setHighlightedUpdateId(null)}
+            />
+          )}
+          {activeTab === 'tasks' && (
+            <TasksTab
+              onOpenThread={handleOpenThread}
+              allUsers={allUsers}
+              highlightedTaskId={highlightedTaskId}
+              clearHighlight={() => setHighlightedTaskId(null)}
+            />
+          )}
           {activeTab === 'courses' && <CoursesTab allUsers={allUsers} />}
-          {activeTab === 'personal' && <PersonalDashboard onOpenThread={handleOpenThread} />}
+          {activeTab === 'personal' && <PersonalDashboard onOpenThread={handleOpenThread} allUsers={allUsers} />}
           {activeTab === 'admin' && (user.role === 'admin' || user.role === 'super_user') && <AdminPanel />}
           {activeTab === 'settings' && <SettingsTab />}
         </main>

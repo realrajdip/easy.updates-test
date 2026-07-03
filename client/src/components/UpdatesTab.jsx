@@ -11,6 +11,8 @@ import { useToast } from '../context/ToastContext';
 import { API_URL } from '../config';
 import UserAvatar from './UserAvatar';
 import Modal, { useModalTitleId } from './Modal';
+import DateTimePicker from './DateTimePicker';
+import Select from './Select';
 
 /* ── Helper: normalise assignedTo to always be an array ─────────────────── */
 const toArray = (v) => {
@@ -24,9 +26,10 @@ const FILTERS = [
   { key: 'pinned', label: 'Pinned' },
   { key: 'pending', label: 'Needs ack' },
   { key: 'mine', label: 'My posts' },
+  { key: 'archive', label: 'Archive' },
 ];
 
-const UpdatesTab = ({ onOpenThread, allUsers = [] }) => {
+const UpdatesTab = ({ onOpenThread, allUsers = [], highlightedUpdateId, clearHighlight }) => {
   const { token, user } = useAuth();
   const { socket } = useSocket();
   const toast = useToast();
@@ -38,6 +41,7 @@ const UpdatesTab = ({ onOpenThread, allUsers = [] }) => {
 
   const [activeMenuId, setActiveMenuId] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [activeHighlightId, setActiveHighlightId] = useState(null);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -45,6 +49,31 @@ const UpdatesTab = ({ onOpenThread, allUsers = [] }) => {
     if (activeMenuId) window.addEventListener('click', handleGlobalClick);
     return () => window.removeEventListener('click', handleGlobalClick);
   }, [activeMenuId]);
+
+  // Handle scrolling and temporary highlight when highlightedUpdateId is provided
+  useEffect(() => {
+    if (highlightedUpdateId) {
+      setFilter('all');
+      setActiveHighlightId(highlightedUpdateId);
+
+      const scrollTimer = setTimeout(() => {
+        const element = document.getElementById(`update-${highlightedUpdateId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 150);
+
+      const timer = setTimeout(() => {
+        setActiveHighlightId(null);
+        if (clearHighlight) clearHighlight();
+      }, 3000);
+
+      return () => {
+        clearTimeout(scrollTimer);
+        clearTimeout(timer);
+      };
+    }
+  }, [highlightedUpdateId]); // eslint-disable-line
 
   const fetchUpdates = async () => {
     setLoading(true);
@@ -185,8 +214,31 @@ const UpdatesTab = ({ onOpenThread, allUsers = [] }) => {
     return assignees.some((a) => (a._id || a) === currentUserId);
   };
 
+  const isFullyAcknowledged = (u) => {
+    const assignees = toArray(u.assignedTo);
+    const ackIds = u.acknowledgedBy.map((a) => (a._id || a));
+    if (assignees.length > 0) {
+      return assignees.every((assignee) => {
+        const assigneeId = assignee._id || assignee;
+        return ackIds.includes(assigneeId);
+      });
+    } else {
+      if (allUsers.length === 0) return false;
+      return allUsers.every((user) => {
+        const userId = user._id || user;
+        return ackIds.includes(userId);
+      });
+    }
+  };
+
   const filtered = updates.filter((u) => {
     const currentUserId = user?.id || user?._id;
+    const isArchived = isFullyAcknowledged(u);
+    if (filter === 'archive') {
+      return isArchived;
+    }
+    if (isArchived) return false;
+
     if (filter === 'pinned') return u.isPinned;
     if (filter === 'pending') {
       const creatorId = u.creator?._id || u.creator;
@@ -306,13 +358,19 @@ const UpdatesTab = ({ onOpenThread, allUsers = [] }) => {
             return (
               <article
                 key={u._id}
-                className={`card flex flex-col gap-4 transition-all duration-200 border ${u.isJustAdded ? 'animate-approach ' : ''
-                  }${u.isPinned
+                id={`update-${u._id}`}
+                className={`card flex flex-col gap-4 transition-all duration-200 border ${
+                  u._id === activeHighlightId
+                    ? 'border-accent shadow-[0_0_0_3px_rgba(0,153,255,0.25)] ring-2 ring-accent'
+                    : u.isJustAdded ? 'animate-approach ' : ''
+                }${u.isPinned && u._id !== activeHighlightId
                     ? 'border-accent/45 bg-surface-1 shadow-[0_4px_20px_rgba(0,153,255,0.06)]'
-                    : !hasAck
-                      ? 'border-hairline bg-surface-1'
-                      : 'border-transparent bg-surface-1/40 opacity-60'
-                  }`}
+                    : u._id === activeHighlightId
+                      ? 'bg-surface-1'
+                      : !hasAck
+                        ? 'border-hairline bg-surface-1'
+                        : 'border-transparent bg-surface-1/40 opacity-60'
+                }`}
               >
                 <header className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
@@ -999,13 +1057,11 @@ const ComposeForm = ({
         />
 
         <Field label="Target closure" optional icon={Clock}>
-          <input
-            type="datetime-local"
+          <DateTimePicker
             value={eta}
+            onChange={setEta}
             min={minEta}
-            onChange={(e) => setEta(e.target.value)}
-            className="input"
-            style={{ colorScheme: 'dark' }}
+            optional
           />
         </Field>
 
@@ -1020,15 +1076,15 @@ const ComposeForm = ({
           {isRecurring && (
             <div className="px-4 pb-4 pt-2 border-t border-hairline-soft">
               <Field label="Interval">
-                <select
+                <Select
                   value={recurrenceRule}
-                  onChange={(e) => setRecurrenceRule(e.target.value)}
-                  className="input"
-                >
-                  <option value="shift">Every shift handover</option>
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                </select>
+                  onChange={setRecurrenceRule}
+                  options={[
+                    { value: 'shift', label: 'Every shift handover' },
+                    { value: 'daily', label: 'Daily' },
+                    { value: 'weekly', label: 'Weekly' }
+                  ]}
+                />
               </Field>
             </div>
           )}

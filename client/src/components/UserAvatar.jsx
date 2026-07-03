@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactDOM from 'react-dom';
+import { useSocket } from '../context/SocketContext';
 
 /**
  * UserAvatar — circular initials avatar with optional online dot + portal tooltip.
@@ -60,7 +61,9 @@ export const UserPresenceCard = ({ anchorRect, user, isOnline: isOnlineProp }) =
   const hasPresenceData = user.status !== undefined && user.status !== null;
 
   let presence;
-  if (isOnlineProp === true || user.status === 'online') {
+  if (user.statusOverride === 'offline') {
+    presence = { type: 'offline', label: 'Offline' };
+  } else if (isOnlineProp === true || user.status === 'online') {
     presence = { type: 'online', label: 'Available' };
   } else if (!hasPresenceData) {
     presence = { type: 'none' }; // no real-time data → show "Team member"
@@ -70,6 +73,7 @@ export const UserPresenceCard = ({ anchorRect, user, isOnline: isOnlineProp }) =
   }
 
   const isOnline   = presence.type === 'online';
+  const isManualOffline = user.statusOverride === 'offline';
   const hasActivity = isOnline && (user.currentPage || user.currentAction);
 
   const CARD_H  = cardRef.current?.offsetHeight || 100;
@@ -140,7 +144,7 @@ export const UserPresenceCard = ({ anchorRect, user, isOnline: isOnlineProp }) =
             }}>
               {(user.username || '??').slice(0, 2).toUpperCase()}
             </div>
-            {isOnline && (
+            {isOnline ? (
               <div style={{
                 position:     'absolute',
                 bottom:        0,
@@ -151,6 +155,29 @@ export const UserPresenceCard = ({ anchorRect, user, isOnline: isOnlineProp }) =
                 background:   '#22c55e',
                 border:       '2px solid #1c1c1c',
                 boxShadow:    '0 0 6px rgba(34,197,94,0.55)',
+              }} />
+            ) : isManualOffline ? (
+              <div style={{
+                position:     'absolute',
+                bottom:        0,
+                right:         0,
+                width:         10,
+                height:        10,
+                borderRadius: '50%',
+                background:   '#1c1c1c',
+                border:       '2px solid #525252',
+              }} />
+            ) : (
+              <div style={{
+                position:     'absolute',
+                bottom:        0,
+                right:         0,
+                width:         10,
+                height:        10,
+                borderRadius: '50%',
+                background:   '#eab308',
+                border:       '2px solid #1c1c1c',
+                boxShadow:    '0 0 6px rgba(234, 179, 8, 0.4)',
               }} />
             )}
           </div>
@@ -244,10 +271,16 @@ const UserAvatar = ({
 
   if (!user) return null;
 
-  const initials = (user.username || '??').slice(0, 2).toUpperCase();
+  const socketCtx = useSocket();
+  const onlineUsers = socketCtx ? socketCtx.onlineUsers : [];
+  const userId = user._id || user.id;
+  const resolvedUser = onlineUsers.find(u => String(u._id) === String(userId)) || user;
+
+  const initials = (resolvedUser.username || '??').slice(0, 2).toUpperCase();
   const s        = SIZE[size] || SIZE.sm;
-  const isOnline = showDot || user.status === 'online';
-  const bgColor  = user.avatarColor || '#3b82f6';
+  const isOnline = showDot || (resolvedUser.status === 'online' && resolvedUser.statusOverride !== 'offline');
+  const isManualOffline = resolvedUser.statusOverride === 'offline';
+  const bgColor  = resolvedUser.avatarColor || '#3b82f6';
 
   const handleMouseEnter = useCallback(() => {
     if (noTooltip) return;
@@ -284,7 +317,7 @@ const UserAvatar = ({
         {initials}
       </div>
 
-      {isOnline && (
+      {isOnline ? (
         <span
           aria-label="online"
           style={{
@@ -296,10 +329,34 @@ const UserAvatar = ({
           }}
           className="absolute bottom-0 right-0 rounded-full"
         />
+      ) : isManualOffline ? (
+        <span
+          aria-label="manual-offline"
+          style={{
+            width:           s.dotPx,
+            height:          s.dotPx,
+            backgroundColor: ringColor,
+            border:          `2.2px solid #525252`,
+            zIndex:          2,
+          }}
+          className="absolute bottom-0 right-0 rounded-full"
+        />
+      ) : (
+        <span
+          aria-label="offline"
+          style={{
+            width:           s.dotPx,
+            height:          s.dotPx,
+            backgroundColor: '#eab308',
+            boxShadow:       `0 0 0 2px ${ringColor}, 0 0 6px rgba(234, 179, 8, 0.4)`,
+            zIndex:          2,
+          }}
+          className="absolute bottom-0 right-0 rounded-full"
+        />
       )}
 
       {anchorRect && (
-        <UserPresenceCard anchorRect={anchorRect} user={user} isOnline={isOnline} />
+        <UserPresenceCard anchorRect={anchorRect} user={resolvedUser} isOnline={isOnline} />
       )}
     </div>
   );
