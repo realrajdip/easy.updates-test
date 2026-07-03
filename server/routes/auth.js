@@ -493,4 +493,42 @@ router.post('/logout', protect, async (req, res) => {
   res.json({ message: 'Logged out successfully' });
 });
 
+// @route   GET api/auth/vapid-public-key
+// @desc    Get VAPID public key for push subscriptions
+// @access  Public
+router.get('/vapid-public-key', (req, res) => {
+  const pushService = require('../services/pushService');
+  res.json({ publicKey: pushService.getPublicKey() });
+});
+
+// @route   POST api/auth/request-access
+// @desc    Request access again for a rejected user
+// @access  Private (accessible to rejected users via middleware bypass)
+router.post('/request-access', protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    if (user.approvalStatus !== 'rejected') {
+      return res.status(400).json({ message: 'Can only request access for revoked accounts' });
+    }
+    
+    user.approvalStatus = 'pending';
+    user.actedBy = null;
+    user.actionDate = null;
+    await user.save();
+    
+    // Broadcast auth update to notify user socket
+    const io = req.app.get('socketio');
+    if (io) {
+      io.to(user._id.toString()).emit('auth:update', { approvalStatus: user.approvalStatus, role: user.role });
+    }
+    
+    res.json({ message: 'Access request submitted successfully', user });
+  } catch (error) {
+    console.error('Request access error:', error);
+    res.status(500).json({ message: 'Server error requesting access' });
+  }
+});
+
 module.exports = router;

@@ -137,4 +137,23 @@ router.put('/status-override', protect, async (req, res) => {
   }
 });
 
+// @route   POST api/users/push-subscription
+// @desc    Register or update push subscription for current user
+// @access  Private
+router.post('/push-subscription', protect, async (req, res) => {
+  const { subscription } = req.body;
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    user.pushSubscription = subscription || null;
+    await user.save();
+    res.json({ message: 'Push subscription saved successfully' });
+  } catch (error) {
+    console.error('Save push subscription error:', error);
+    res.status(500).json({ message: 'Server error saving push subscription' });
+  }
+});
+
 module.exports = router;

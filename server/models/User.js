@@ -79,6 +79,10 @@ const UserSchema = new mongoose.Schema({
   actionDate: {
     type: Date,
     default: null
+  },
+  pushSubscription: {
+    type: Object,
+    default: null
   }
 }, { timestamps: true });
 

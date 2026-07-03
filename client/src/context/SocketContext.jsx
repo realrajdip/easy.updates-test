@@ -31,10 +31,11 @@ export const SocketProvider = ({ children }) => {
   };
 
   const userId = user?.id || user?._id;
+  const isApproved = user?.approvalStatus === 'approved' || user?.isApproved === true;
 
   useEffect(() => {
-    // Only connect if fully authenticated (no 2FA pending)
-    if (token && !is2faPending && userId) {
+    // Only connect if fully authenticated (no 2FA pending) and approved
+    if (token && !is2faPending && userId && isApproved) {
       fetchNotifications(token);
 
       const newSocket = io(SOCKET_URL, {
@@ -91,7 +92,7 @@ export const SocketProvider = ({ children }) => {
       setOnlineUsers([]);
       setNotifications([]);
     }
-  }, [token, is2faPending, userId]);
+  }, [token, is2faPending, userId, isApproved]);
 
   const updateActivity = (page, action) => {
     if (socket) {

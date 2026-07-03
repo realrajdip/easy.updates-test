@@ -3,6 +3,7 @@ import { User, Shield, Key, Loader2, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { API_URL } from '../config';
+import ConfirmModal from './ConfirmModal';
 
 const COLORS = [
   { hex: '#ed1aa0', name: 'Pink Accent' },
@@ -27,6 +28,7 @@ const SettingsTab = () => {
 
   const [isSaving, setIsSaving] = useState(false);
   const [isResetting2FA, setIsResetting2FA] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
@@ -67,11 +69,12 @@ const SettingsTab = () => {
     }
   };
 
+  const triggerReset2FA = () => {
+    setShowResetConfirm(true);
+  };
+
   const handleReset2FA = async () => {
-    if (!window.confirm('This will log you out and require you to set up 2FA again. Are you sure?')) {
-      return;
-    }
-    
+    setShowResetConfirm(false);
     setIsResetting2FA(true);
     try {
       const res = await fetch(`${API_URL}/api/auth/2fa/regenerate-secrets`, {
@@ -242,7 +245,7 @@ const SettingsTab = () => {
 
             <button 
               type="button" 
-              onClick={handleReset2FA}
+              onClick={triggerReset2FA}
               className="btn btn-secondary mt-2 w-full flex justify-center"
               disabled={isResetting2FA}
             >
@@ -258,6 +261,18 @@ const SettingsTab = () => {
           </div>
         </div>
       </div>
+
+      {/* Reset 2FA Confirmation Modal */}
+      <ConfirmModal
+        open={showResetConfirm}
+        title="Reset 2FA?"
+        message="This will immediately log you out and require you to scan a new QR code to set up Two-Factor Authentication again. Are you sure?"
+        confirmText="Reset 2FA"
+        cancelText="Cancel"
+        onConfirm={handleReset2FA}
+        onCancel={() => setShowResetConfirm(false)}
+        isDanger={true}
+      />
     </div>
   );
 };

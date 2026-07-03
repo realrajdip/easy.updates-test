@@ -27,7 +27,7 @@ const protect = async (req, res, next) => {
 
     // If user is not approved, block access to everything except /me and /2fa routes
     const isApproved = user.approvalStatus === 'approved' || user.get('isApproved') === true;
-    if (!isApproved && !req.path.startsWith('/2fa/') && req.path !== '/me') {
+    if (!isApproved && !req.path.startsWith('/2fa/') && req.path !== '/me' && req.path !== '/request-access') {
       return res.status(403).json({ message: 'Account pending approval', isPendingApproval: true });
     }
 

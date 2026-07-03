@@ -50,6 +50,7 @@ async function resolveMentions(text, currentUserId) {
  * Deduplicates within the call.
  */
 async function sendNotifications(io, recipientIds, message, { updateId }) {
+  const pushService = require('../services/pushService');
   const unique = [...new Set(recipientIds.map(String))];
   for (const recipientId of unique) {
     const notification = new Notification({
@@ -66,6 +67,28 @@ async function sendNotifications(io, recipientIds, message, { updateId }) {
         isRead: false,
         createdAt: notification.createdAt,
       });
+    }
+
+    try {
+      const recipientUser = await User.findById(recipientId);
+      if (recipientUser && recipientUser.pushSubscription) {
+        const payload = {
+          title: 'Easy Updates',
+          body: message,
+          data: {
+            url: '/',
+            notificationId: notification._id,
+            updateId
+          }
+        };
+        const success = await pushService.sendPush(recipientUser.pushSubscription, payload);
+        if (!success) {
+          recipientUser.pushSubscription = null;
+          await recipientUser.save();
+        }
+      }
+    } catch (pushErr) {
+      console.error('Failed to dispatch web push in updates route:', pushErr);
     }
   }
 }

@@ -345,6 +345,61 @@ const Dashboard = () => {
     if (token) fetchAllUsers();
   }, [token]); // eslint-disable-line
 
+  const urlBase64ToUint8Array = (base64String) => {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  };
+
+  const subscribeToPush = async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      console.log('Push notifications not supported by this browser.');
+      return;
+    }
+    try {
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      await navigator.serviceWorker.ready;
+
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        console.log('Notification permission denied.');
+        return;
+      }
+
+      const keyRes = await fetch(`${API_URL}/api/auth/vapid-public-key`);
+      if (!keyRes.ok) throw new Error('VAPID public key load failed');
+      const { publicKey } = await keyRes.json();
+
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey)
+      });
+
+      await fetch(`${API_URL}/api/users/push-subscription`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ subscription })
+      });
+      console.log('Web Push subscription successfully registered with server.');
+    } catch (err) {
+      console.error('Error establishing web push subscription:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (token) {
+      subscribeToPush();
+    }
+  }, [token]); // eslint-disable-line
+
   useEffect(() => {
     const map = {
       updates: {

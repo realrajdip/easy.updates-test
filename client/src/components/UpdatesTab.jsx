@@ -13,6 +13,7 @@ import UserAvatar from './UserAvatar';
 import Modal, { useModalTitleId } from './Modal';
 import DateTimePicker from './DateTimePicker';
 import Select from './Select';
+import ConfirmModal from './ConfirmModal';
 
 /* ── Helper: normalise assignedTo to always be an array ─────────────────── */
 const toArray = (v) => {
@@ -950,35 +951,16 @@ const ComposeUpdateModal = ({ open, onClose, allUsers, onPublished, onFailed, in
       </Modal>
 
       {/* Discard Confirmation — separate portal so Escape only closes this */}
-      <Modal
+      <ConfirmModal
         open={showDiscardConfirm}
-        onClose={() => setShowDiscardConfirm(false)}
-        maxWidth={400}
-        align="center"
-      >
-        <div className="p-6 flex flex-col gap-6">
-          <div>
-            <h3 className="text-lg font-bold text-ink">Discard Changes?</h3>
-            <p className="text-[13px] text-ink-muted mt-2 leading-relaxed">
-              You have unsaved changes. Are you sure you want to discard them?
-            </p>
-          </div>
-          <div className="flex items-center gap-3 justify-end">
-            <button
-              className="px-4 py-2 rounded-pill bg-surface-2 text-ink hover:bg-white/10 transition-colors text-[13px] font-medium border border-transparent hover:border-hairline"
-              onClick={() => setShowDiscardConfirm(false)}
-            >
-              Keep editing
-            </button>
-            <button
-              className="btn btn-primary bg-danger text-white border-transparent hover:bg-danger/80"
-              onClick={forceClose}
-            >
-              Discard
-            </button>
-          </div>
-        </div>
-      </Modal>
+        title="Discard Changes?"
+        message="You have unsaved changes. Are you sure you want to discard them?"
+        confirmText="Discard"
+        cancelText="Keep editing"
+        onConfirm={forceClose}
+        onCancel={() => setShowDiscardConfirm(false)}
+        isDanger={false}
+      />
     </>
   );
 };

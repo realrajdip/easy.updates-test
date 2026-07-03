@@ -18,6 +18,10 @@ router.put('/users/:id/approve', protect, adminOnly, async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (req.user.role === 'admin' && user.role === 'super_user') {
+       return res.status(403).json({ message: 'Admins cannot approve a super user' });
+    }
     
     user.approvalStatus = 'approved';
     user.actedBy = req.user.username;
@@ -43,9 +47,9 @@ router.put('/users/:id/reject', protect, adminOnly, async (req, res) => {
        return res.status(403).json({ message: 'Cannot reject a super user' });
     }
 
-    // Admins cannot reject other admins
-    if (req.user.role === 'admin' && user.role !== 'user') {
-       return res.status(403).json({ message: 'Admins can only reject regular users' });
+    // Admins cannot reject super users (redundant but safe)
+    if (req.user.role === 'admin' && user.role === 'super_user') {
+       return res.status(403).json({ message: 'Admins cannot reject a super user' });
     }
 
     user.approvalStatus = 'rejected';

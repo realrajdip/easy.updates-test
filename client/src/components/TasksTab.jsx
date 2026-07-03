@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import {
   Plus, ListTodo, Play, CheckCircle2, Clock, MessageSquare, X, Send,
-  Loader2, Users, MoreHorizontal, Pencil, Trash2, Search, ChevronDown, Check
+  Loader2, Users, MoreHorizontal, Pencil, Trash2, Search, ChevronDown, Check,
+  AlertTriangle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -11,6 +12,7 @@ import { API_URL } from '../config';
 import UserAvatar from './UserAvatar';
 import Modal, { useModalTitleId } from './Modal';
 import DateTimePicker from './DateTimePicker';
+import ConfirmModal from './ConfirmModal';
 
 /* ── Helper: normalise assignedTo to always be an array ─────────────────── */
 const toArray = (v) => {
@@ -642,12 +644,43 @@ const TaskCard = ({ task, col, meta, currentUser, activeMenuId, setActiveMenuId,
           </span>
         )}
 
-        {task.eta && (
-          <span className="flex items-center gap-1 text-accent tracking-tight">
-            <Clock className="h-3 w-3" aria-hidden="true" />
-            {new Date(task.eta).toLocaleDateString()}
-          </span>
-        )}
+        {task.eta && (() => {
+          const now = new Date();
+          const etaDate = new Date(task.eta);
+          const isOverdue = now > etaDate && task.status !== 'completed';
+          const isDueSoon = !isOverdue && task.status !== 'completed' && (etaDate - now < 24 * 60 * 60 * 1000);
+          
+          if (task.status === 'completed') {
+            return (
+              <span className="flex items-center gap-1 text-success bg-success/10 border border-success/20 rounded-pill px-2 py-0.5 text-[10px] tracking-tight font-medium shrink-0">
+                <CheckCircle2 className="h-2.5 w-2.5" />
+                Done: {etaDate.toLocaleDateString()}
+              </span>
+            );
+          }
+          if (isOverdue) {
+            return (
+              <span className="flex items-center gap-1 text-danger bg-danger/10 border border-danger/20 rounded-pill px-2 py-0.5 text-[10px] tracking-tight font-medium shrink-0 animate-pulse">
+                <AlertTriangle className="h-2.5 w-2.5" />
+                Overdue: {etaDate.toLocaleDateString()}
+              </span>
+            );
+          }
+          if (isDueSoon) {
+            return (
+              <span className="flex items-center gap-1 text-warning bg-warning/10 border border-warning/20 rounded-pill px-2 py-0.5 text-[10px] tracking-tight font-medium shrink-0">
+                <Clock className="h-2.5 w-2.5" />
+                Due soon: {etaDate.toLocaleDateString()}
+              </span>
+            );
+          }
+          return (
+            <span className="flex items-center gap-1 text-ink-muted bg-surface-2 border border-hairline-soft rounded-pill px-2 py-0.5 text-[10px] tracking-tight font-medium shrink-0">
+              <Clock className="h-2.5 w-2.5" />
+              Due: {etaDate.toLocaleDateString()}
+            </span>
+          );
+        })()}
       </div>
 
       <div className="flex items-center justify-between gap-2 pt-2 border-t border-hairline-soft">
@@ -798,35 +831,16 @@ const ComposeTaskModal = ({ open, onClose, allUsers, onCreated, onFailed, initia
       </Modal>
 
       {/* Discard Confirmation — separate portal so Escape only closes this */}
-      <Modal
+      <ConfirmModal
         open={showDiscardConfirm}
-        onClose={() => setShowDiscardConfirm(false)}
-        maxWidth={400}
-        align="center"
-      >
-        <div className="p-6 flex flex-col gap-6">
-          <div>
-            <h3 className="text-lg font-bold text-ink">Discard Task?</h3>
-            <p className="text-[13px] text-ink-muted mt-2 leading-relaxed">
-              You have unsaved changes. Are you sure you want to discard this task assignment?
-            </p>
-          </div>
-          <div className="flex items-center gap-3 justify-end">
-            <button
-              className="px-4 py-2 rounded-pill bg-surface-2 text-ink hover:bg-white/10 transition-colors text-[13px] font-medium border border-transparent hover:border-hairline"
-              onClick={() => setShowDiscardConfirm(false)}
-            >
-              Keep editing
-            </button>
-            <button
-              className="btn btn-primary bg-danger text-white border-transparent hover:bg-danger/80"
-              onClick={forceClose}
-            >
-              Discard
-            </button>
-          </div>
-        </div>
-      </Modal>
+        title="Discard Task?"
+        message="You have unsaved changes. Are you sure you want to discard this task assignment?"
+        confirmText="Discard"
+        cancelText="Keep editing"
+        onConfirm={forceClose}
+        onCancel={() => setShowDiscardConfirm(false)}
+        isDanger={false}
+      />
     </>
   );
 };

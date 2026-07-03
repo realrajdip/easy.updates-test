@@ -4,6 +4,7 @@ import { useToast } from '../context/ToastContext';
 import { Shield, UserCheck, UserX, User, ShieldAlert, ChevronDown } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 import { API_URL } from '../config';
+import ConfirmModal from './ConfirmModal';
 
 const AdminPanel = () => {
   const { user, token } = useAuth();
@@ -11,6 +12,8 @@ const AdminPanel = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [roleChangeConfig, setRoleChangeConfig] = useState(null);
+  const [revokeConfirmUser, setRevokeConfirmUser] = useState(null);
+  const [regrantConfirmUser, setRegrantConfirmUser] = useState(null);
 
   const fetchUsers = async () => {
     try {
@@ -149,7 +152,7 @@ const AdminPanel = () => {
 
   return (
     <div className="flex flex-col h-full bg-canvas overflow-y-auto">
-      <div className="p-8 max-w-5xl mx-auto w-full space-y-10">
+      <div className="p-4 sm:p-8 max-w-5xl mx-auto w-full space-y-10">
         
         {/* Header */}
         <div>
@@ -203,8 +206,8 @@ const AdminPanel = () => {
           <h2 className="text-sm font-semibold tracking-widest uppercase text-ink-dim mb-4 border-b border-hairline pb-2">
             Active Directory ({activeUsers.length})
           </h2>
-          <div className="card overflow-hidden">
-            <table className="w-full text-left text-sm">
+          <div className="card overflow-hidden overflow-x-auto">
+            <table className="w-full text-left text-sm min-w-[500px]">
               <thead className="bg-surface-1 border-b border-hairline">
                 <tr>
                   <th className="px-4 py-3 font-medium text-ink-muted">User</th>
@@ -215,12 +218,14 @@ const AdminPanel = () => {
               <tbody className="divide-y divide-hairline">
                 {activeUsers.map(activeUser => (
                   <tr key={activeUser._id} className="hover:bg-surface-1/50 transition-colors">
-                    <td className="px-4 py-3 flex items-center gap-3">
-                      <UserAvatar user={activeUser} size="sm" noTooltip />
-                      <span className="font-medium text-ink">@{activeUser.username}</span>
-                      {activeUser._id === user.id && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-pill bg-surface-2 text-ink-muted ml-2">You</span>
-                      )}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <UserAvatar user={activeUser} size="sm" noTooltip />
+                        <span className="font-medium text-ink">@{activeUser.username}</span>
+                        {activeUser._id === user.id && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-pill bg-surface-2 text-ink-muted">You</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       {activeUser.role === 'super_user' ? (
@@ -238,20 +243,40 @@ const AdminPanel = () => {
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {user.role === 'super_user' && activeUser.role !== 'super_user' ? (
-                        <RoleDropdown 
-                          currentRole={activeUser.role} 
-                          onSelect={(newRole) => {
-                            setRoleChangeConfig({
-                              id: activeUser._id,
-                              username: activeUser.username,
-                              newRole: newRole
-                            });
-                          }} 
-                        />
-                      ) : (
-                         <span className="text-xs text-ink-dim">-</span>
-                      )}
+                      <div className="flex items-center justify-end gap-2">
+                        {user.role === 'super_user' && activeUser.role !== 'super_user' && (
+                          <RoleDropdown 
+                            currentRole={activeUser.role} 
+                            onSelect={(newRole) => {
+                              setRoleChangeConfig({
+                                id: activeUser._id,
+                                username: activeUser.username,
+                                newRole: newRole
+                              });
+                            }} 
+                          />
+                        )}
+                        {(user.role === 'super_user' || user.role === 'admin') && 
+                         activeUser.role !== 'super_user' && 
+                         activeUser._id !== user.id && (
+                          <button
+                            onClick={() => setRevokeConfirmUser(activeUser)}
+                            className="px-2.5 py-1 rounded-pill bg-danger/10 hover:bg-danger/20 text-danger border border-danger/20 hover:border-danger/30 flex items-center text-[11px] font-medium transition-all"
+                            title="Revoke access"
+                          >
+                            <UserX className="h-3 w-3 mr-1" /> Revoke
+                          </button>
+                        )}
+                        {activeUser.role === 'super_user' && (
+                          <span className="text-xs text-ink-dim">-</span>
+                        )}
+                        {user.role !== 'super_user' && user.role !== 'admin' && (
+                          <span className="text-xs text-ink-dim">-</span>
+                        )}
+                        {activeUser._id === user.id && user.role !== 'super_user' && (
+                          <span className="text-xs text-ink-dim">-</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -266,22 +291,25 @@ const AdminPanel = () => {
             <h2 className="text-sm font-semibold tracking-widest uppercase text-ink-dim mb-4 border-b border-hairline pb-2">
               Approval History
             </h2>
-            <div className="card overflow-hidden">
-              <table className="w-full text-left text-sm">
+            <div className="card overflow-hidden overflow-x-auto">
+              <table className="w-full text-left text-sm min-w-[600px]">
                 <thead className="bg-surface-1 border-b border-hairline">
                   <tr>
                     <th className="px-4 py-3 font-medium text-ink-muted">User</th>
                     <th className="px-4 py-3 font-medium text-ink-muted">Status</th>
                     <th className="px-4 py-3 font-medium text-ink-muted">Action By</th>
-                    <th className="px-4 py-3 font-medium text-ink-muted text-right">Date</th>
+                    <th className="px-4 py-3 font-medium text-ink-muted">Date</th>
+                    <th className="px-4 py-3 font-medium text-ink-muted text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-hairline">
                   {historyUsers.map(historyUser => (
                     <tr key={`hist-${historyUser._id}`} className="hover:bg-surface-1/50 transition-colors">
-                      <td className="px-4 py-3 flex items-center gap-3">
-                        <UserAvatar user={historyUser} size="sm" noTooltip />
-                        <span className="font-medium text-ink">@{historyUser.username}</span>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <UserAvatar user={historyUser} size="sm" noTooltip />
+                          <span className="font-medium text-ink">@{historyUser.username}</span>
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         {historyUser.approvalStatus === 'approved' || historyUser.isApproved === true ? (
@@ -293,8 +321,22 @@ const AdminPanel = () => {
                       <td className="px-4 py-3 text-ink-muted text-xs">
                          {historyUser.actedBy ? `@${historyUser.actedBy}` : 'System'}
                       </td>
-                      <td className="px-4 py-3 text-right text-ink-dim text-xs">
+                      <td className="px-4 py-3 text-ink-dim text-xs">
                          {historyUser.actionDate ? new Date(historyUser.actionDate).toLocaleDateString() : 'N/A'}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {historyUser.approvalStatus === 'rejected' && 
+                         (user.role === 'super_user' || user.role === 'admin') && (
+                          <button
+                            onClick={() => setRegrantConfirmUser(historyUser)}
+                            className="px-2.5 py-1 rounded-pill bg-success/15 hover:bg-success/25 text-success border border-success/20 hover:border-success/30 flex items-center text-[11px] font-medium transition-all ml-auto"
+                          >
+                            <UserCheck className="h-3 w-3 mr-1" /> Re-grant Access
+                          </button>
+                        )}
+                        {(historyUser.approvalStatus === 'approved' || historyUser.isApproved === true) && (
+                          <span className="text-xs text-ink-dim">-</span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -307,36 +349,57 @@ const AdminPanel = () => {
       </div>
 
       {/* Role Change Confirmation Modal */}
-      {roleChangeConfig && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-          <div className="surface-1 border border-hairline p-6 w-full max-w-sm rounded-2xl flex flex-col gap-6 animate-in fade-in zoom-in duration-200 shadow-2xl">
-            <div>
-              <h3 className="text-lg font-bold text-ink">Confirm Role Change</h3>
-              <p className="text-[13px] text-ink-muted mt-2 leading-relaxed">
-                Are you sure you want to change <span className="font-medium text-ink">@{roleChangeConfig.username}</span>'s role to <span className="font-semibold text-accent">{roleChangeConfig.newRole === 'admin' ? 'Admin' : 'User'}</span>?
-              </p>
-            </div>
-            <div className="flex items-center gap-3 justify-end">
-              <button 
-                className="px-4 py-2 rounded-pill bg-surface-2 text-ink hover:bg-white/10 transition-colors text-[13px] font-medium border border-transparent hover:border-hairline"
-                onClick={() => setRoleChangeConfig(null)}
-              >
-                Cancel
-              </button>
-              <button 
-                className="btn btn-primary"
-                onClick={() => {
-                  handleRoleChange(roleChangeConfig.id, roleChangeConfig.newRole);
-                  setRoleChangeConfig(null);
-                }}
-              >
-                Confirm Change
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        open={!!roleChangeConfig}
+        title="Confirm Role Change"
+        message={roleChangeConfig ? `Are you sure you want to change @${roleChangeConfig.username}'s role to ${roleChangeConfig.newRole === 'admin' ? 'Admin' : 'User'}?` : ''}
+        confirmText="Change Role"
+        cancelText="Cancel"
+        onConfirm={() => {
+          handleRoleChange(roleChangeConfig.id, roleChangeConfig.newRole);
+          setRoleChangeConfig(null);
+        }}
+        onCancel={() => setRoleChangeConfig(null)}
+        isDanger={false}
+      />
 
+      {/* Revoke Access Confirmation Modal */}
+      <ConfirmModal
+        open={!!revokeConfirmUser}
+        title="Revoke Access?"
+        message={revokeConfirmUser ? `Are you sure you want to revoke @${revokeConfirmUser.username}'s access? They will be immediately disconnected and locked out.` : ''}
+        confirmText="Revoke Access"
+        cancelText="Cancel"
+        onConfirm={() => {
+          handleReject(revokeConfirmUser._id);
+          setRevokeConfirmUser(null);
+        }}
+        onCancel={() => setRevokeConfirmUser(null)}
+        isDanger={true}
+      />
+
+      {/* Re-grant Access Confirmation Modal */}
+      <ConfirmModal
+        open={!!regrantConfirmUser}
+        title="Re-grant Access?"
+        message={
+          regrantConfirmUser 
+            ? `This account was rejected/revoked by @${regrantConfirmUser.actedBy || 'System'} on ${
+                regrantConfirmUser.actionDate 
+                  ? new Date(regrantConfirmUser.actionDate).toLocaleString() 
+                  : 'N/A'
+              }. Are you sure you want to re-approve access for @${regrantConfirmUser.username}?` 
+            : ''
+        }
+        confirmText="Approve User"
+        cancelText="Cancel"
+        onConfirm={() => {
+          handleApprove(regrantConfirmUser._id);
+          setRegrantConfirmUser(null);
+        }}
+        onCancel={() => setRegrantConfirmUser(null)}
+        isDanger={false}
+      />
     </div>
   );
 };

@@ -38,6 +38,7 @@ const startEtaNotifier = (io) => {
         const preview = update.description.length > 40 ? `${update.description.slice(0, 40)}...` : update.description;
         const message = `Shift update target closure is approaching (due in under 30 mins): "${preview}"`;
 
+        const pushService = require('./pushService');
         const uniqueRecipients = [...new Set(recipients)];
         for (const recipientId of uniqueRecipients) {
           const notification = new Notification({
@@ -55,6 +56,28 @@ const startEtaNotifier = (io) => {
               isRead: false,
               createdAt: notification.createdAt
             });
+          }
+
+          try {
+            const recipientUser = await User.findById(recipientId);
+            if (recipientUser && recipientUser.pushSubscription) {
+              const payload = {
+                title: 'Easy Updates - Deadline approaching',
+                body: message,
+                data: {
+                  url: '/',
+                  notificationId: notification._id,
+                  updateId: update._id
+                }
+              };
+              const success = await pushService.sendPush(recipientUser.pushSubscription, payload);
+              if (!success) {
+                recipientUser.pushSubscription = null;
+                await recipientUser.save();
+              }
+            }
+          } catch (pushErr) {
+            console.error('Failed to dispatch ETA updates push:', pushErr);
           }
         }
         console.log(`Sent ETA warnings for update ${update._id} to ${uniqueRecipients.length} user(s).`);
@@ -85,6 +108,7 @@ const startEtaNotifier = (io) => {
         // Construct notification message
         const message = `Task deadline is approaching (due in under 30 mins): "${task.title}"`;
 
+        const pushService = require('./pushService');
         const uniqueRecipients = [...new Set(recipients)];
         for (const recipientId of uniqueRecipients) {
           const notification = new Notification({
@@ -102,6 +126,28 @@ const startEtaNotifier = (io) => {
               isRead: false,
               createdAt: notification.createdAt
             });
+          }
+
+          try {
+            const recipientUser = await User.findById(recipientId);
+            if (recipientUser && recipientUser.pushSubscription) {
+              const payload = {
+                title: 'Easy Updates - Deadline approaching',
+                body: message,
+                data: {
+                  url: '/',
+                  notificationId: notification._id,
+                  taskId: task._id
+                }
+              };
+              const success = await pushService.sendPush(recipientUser.pushSubscription, payload);
+              if (!success) {
+                recipientUser.pushSubscription = null;
+                await recipientUser.save();
+              }
+            }
+          } catch (pushErr) {
+            console.error('Failed to dispatch ETA tasks push:', pushErr);
           }
         }
         console.log(`Sent ETA warnings for task ${task._id} to ${uniqueRecipients.length} user(s).`);

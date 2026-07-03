@@ -61,7 +61,9 @@ export const UserPresenceCard = ({ anchorRect, user, isOnline: isOnlineProp }) =
   const hasPresenceData = user.status !== undefined && user.status !== null;
 
   let presence;
-  if (user.statusOverride === 'offline') {
+  if (user.approvalStatus === 'rejected') {
+    presence = { type: 'rejected', label: 'Unknown status' };
+  } else if (user.statusOverride === 'offline') {
     presence = { type: 'offline', label: 'Offline' };
   } else if (isOnlineProp === true || user.status === 'online') {
     presence = { type: 'online', label: 'Available' };
@@ -278,8 +280,9 @@ const UserAvatar = ({
 
   const initials = (resolvedUser.username || '??').slice(0, 2).toUpperCase();
   const s        = SIZE[size] || SIZE.sm;
-  const isOnline = showDot || (resolvedUser.status === 'online' && resolvedUser.statusOverride !== 'offline');
-  const isManualOffline = resolvedUser.statusOverride === 'offline';
+  const isRevoked = resolvedUser.approvalStatus === 'rejected';
+  const isOnline = !isRevoked && (showDot || (resolvedUser.status === 'online' && resolvedUser.statusOverride !== 'offline'));
+  const isManualOffline = !isRevoked && resolvedUser.statusOverride === 'offline';
   const bgColor  = resolvedUser.avatarColor || '#3b82f6';
 
   const handleMouseEnter = useCallback(() => {
@@ -306,7 +309,7 @@ const UserAvatar = ({
   return (
     <div
       ref={wrapRef}
-      className="relative inline-flex items-center justify-center shrink-0 select-none cursor-pointer"
+      className={`relative inline-flex items-center justify-center shrink-0 select-none cursor-pointer ${isRevoked ? 'opacity-65' : ''}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
@@ -317,7 +320,19 @@ const UserAvatar = ({
         {initials}
       </div>
 
-      {isOnline ? (
+      {isRevoked ? (
+        <span
+          aria-label="revoked"
+          style={{
+            width:           s.dotPx,
+            height:          s.dotPx,
+            backgroundColor: '#1a1a1a',
+            border:          `2px solid #525252`,
+            zIndex:          2,
+          }}
+          className="absolute bottom-0 right-0 rounded-full"
+        />
+      ) : isOnline ? (
         <span
           aria-label="online"
           style={{
