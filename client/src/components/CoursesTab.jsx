@@ -225,7 +225,9 @@ const CoursesTab = ({ allUsers = [] }) => {
         onClose={() => setShowCreate(false)}
         onCreated={(c) => {
           setCourses((prev) => [c, ...prev]);
-          setActiveId(c._id);
+          setTimeout(() => {
+            setActiveId(c._id);
+          }, 300);
           toast.success('Track created.');
         }}
       />
