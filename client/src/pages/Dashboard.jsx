@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Layers, FileText, ClipboardList, GraduationCap,
-  Bell, LogOut, Check, X, Shield, Settings, Loader2
+  Bell, LogOut, Check, X, Shield, Settings, Loader2, Search
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -13,6 +13,7 @@ import TasksTab from '../components/TasksTab';
 import PersonalDashboard from '../components/PersonalDashboard';
 import UserAvatar, { UserPresenceCard } from '../components/UserAvatar';
 import Select from '../components/Select';
+import SearchModal from '../components/SearchModal';
 
 // Heavy tabs — loaded on demand (splits the initial bundle)
 const CoursesTab   = lazy(() => import('../components/CoursesTab'));
@@ -170,7 +171,7 @@ const OnlineAvatars = ({ onlineUsers, currentUserId }) => {
 };
 
 /* ─── Top nav ───────────────────────────────────────────────────────────── */
-const TopBar = ({ user, onlineUsers, notifications, onNotifClick, onMarkAll, onLogout }) => {
+const TopBar = ({ user, onlineUsers, notifications, onNotifClick, onMarkAll, onLogout, onOpenSearch }) => {
   const [showNotifs, setShowNotifs] = useState(false);
   const notifRef = useRef(null);
   const unreadCount = notifications.filter((n) => !n.isRead).length;
@@ -192,12 +193,27 @@ const TopBar = ({ user, onlineUsers, notifications, onNotifClick, onMarkAll, onL
         <div className="display-sm tracking-tight leading-none">
           easy<span className="text-accent">·</span>updates
         </div>
-        <span className="hidden md:inline text-[11px] text-ink-dim tracking-tight border-l border-hairline-soft pl-3">
+        <span className="hidden lg:inline text-[11px] text-ink-dim tracking-tight border-l border-hairline-soft pl-3">
           Shift handover suite
         </span>
+
+        {/* Global Search Bar Trigger (Desktop) */}
+        <div
+          onClick={onOpenSearch}
+          className="hidden md:flex items-center gap-2 bg-surface-1/40 hover:bg-surface-1 border border-hairline hover:border-hairline-soft rounded-pill px-3 py-1.5 text-ink-muted cursor-pointer transition-all w-48 lg:w-60 select-none ml-2 lg:ml-6"
+        >
+          <Search className="h-3.5 w-3.5 text-ink-dim" />
+          <span className="text-[12px] tracking-tight">Search...</span>
+          <span className="ml-auto text-[9px] bg-white/5 border border-white/10 px-1.5 py-0.5 rounded text-ink-dim font-mono">/</span>
+        </div>
       </div>
 
       <div className="flex items-center gap-4">
+        {/* Mobile Search Button */}
+        <button onClick={onOpenSearch} className="md:hidden btn-icon" title="Search">
+          <Search className="h-4 w-4" />
+        </button>
+
         <div className="hidden sm:block">
           <OnlineAvatars onlineUsers={onlineUsers} currentUserId={user?._id || user?.id} />
         </div>
@@ -343,6 +359,40 @@ const Dashboard = () => {
   const [allUsers, setAllUsers] = useState([]);
   const [highlightedUpdateId, setHighlightedUpdateId] = useState(null);
   const [highlightedTaskId, setHighlightedTaskId] = useState(null);
+  const [highlightedCourseId, setHighlightedCourseId] = useState(null);
+  const [showSearchModal, setShowSearchModal] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const activeEl = document.activeElement;
+      const isInputActive = activeEl && (
+        activeEl.tagName === 'INPUT' ||
+        activeEl.tagName === 'TEXTAREA' ||
+        activeEl.isContentEditable
+      );
+      if (isInputActive) return;
+
+      if (e.key === '/' || (e.ctrlKey && e.key === 'k')) {
+        e.preventDefault();
+        setShowSearchModal(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const handleSelectSearchResult = useCallback((type, id) => {
+    if (type === 'updates') {
+      setHighlightedUpdateId(id);
+      setActiveTab('updates');
+    } else if (type === 'tasks') {
+      setHighlightedTaskId(id);
+      setActiveTab('tasks');
+    } else if (type === 'courses') {
+      setHighlightedCourseId(id);
+      setActiveTab('courses');
+    }
+  }, []);
 
   const fetchAllUsers = async () => {
     try {
@@ -496,6 +546,7 @@ const Dashboard = () => {
         onNotifClick={handleNotifClick}
         onMarkAll={markAllNotificationsRead}
         onLogout={logout}
+        onOpenSearch={() => setShowSearchModal(true)}
       />
 
       <div className="flex-1 max-w-[1280px] w-full mx-auto grid grid-cols-1 md:grid-cols-[230px_1fr]">
@@ -531,7 +582,11 @@ const Dashboard = () => {
           {/* Lazy-loaded tabs — chunk downloads once, then persisted via display:none */}
           <div style={{ display: activeTab === 'courses' ? '' : 'none' }}>
             <Suspense fallback={<TabSpinner />}>
-              <CoursesTab allUsers={allUsers} />
+              <CoursesTab
+                allUsers={allUsers}
+                highlightedCourseId={highlightedCourseId}
+                clearHighlight={() => setHighlightedCourseId(null)}
+              />
             </Suspense>
           </div>
           {(user.role === 'admin' || user.role === 'super_user') && (
@@ -561,6 +616,13 @@ const Dashboard = () => {
           />
         </Suspense>
       )}
+
+      {/* Global Search Modal */}
+      <SearchModal
+        open={showSearchModal}
+        onClose={() => setShowSearchModal(false)}
+        onSelectResult={handleSelectSearchResult}
+      />
     </div>
   );
 };

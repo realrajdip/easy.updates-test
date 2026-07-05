@@ -19,10 +19,13 @@ const adminRoutes = require('./routes/admin');
 const coursesRoutes = require('./routes/courses');
 const { initSocket } = require('./socket/presence');
 
+const compression = require('compression');
+
 const app = express();
 const server = http.createServer(app);
 
 // Middlewares
+app.use(compression()); // gzip all responses — 3-5x smaller JSON payloads
 app.use(cors({
   origin: true, // Allow frontend origin
   credentials: true

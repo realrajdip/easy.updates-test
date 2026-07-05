@@ -46,7 +46,7 @@ const getPresenceLabel = (user) => {
 };
 
 /* ── Shared portal user card (DESIGN.md compliant) ── */
-export const UserPresenceCard = ({ anchorRect, user, isOnline: isOnlineProp }) => {
+export const UserPresenceCard = React.memo(({ anchorRect, user, isOnline: isOnlineProp }) => {
   const cardRef = useRef(null);
   const MARGIN  = 10;
   const CARD_W  = 236;
@@ -257,7 +257,7 @@ export const UserPresenceCard = ({ anchorRect, user, isOnline: isOnlineProp }) =
     </div>,
     document.body
   );
-};
+});
 
 
 const UserAvatar = ({
@@ -377,4 +377,4 @@ const UserAvatar = ({
   );
 };
 
-export default UserAvatar;
+export default React.memo(UserAvatar);

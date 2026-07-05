@@ -67,7 +67,7 @@ const tagListFromString = (s) =>
 /* Root tab                                                               */
 /* ────────────────────────────────────────────────────────────────────── */
 
-const CoursesTab = ({ allUsers = [] }) => {
+const CoursesTab = ({ allUsers = [], highlightedCourseId, clearHighlight }) => {
   const { token } = useAuth();
   const { socket } = useSocket();
   const toast = useToast();
@@ -75,6 +75,13 @@ const CoursesTab = ({ allUsers = [] }) => {
   const [showCreate, setShowCreate] = useState(false);
   const [activeId, setActiveId] = useState(null);
   const [filter, setFilter] = useState('all');
+
+  useEffect(() => {
+    if (highlightedCourseId) {
+      setActiveId(highlightedCourseId);
+      if (clearHighlight) clearHighlight();
+    }
+  }, [highlightedCourseId, clearHighlight]);
 
   // SWR: show cached course list instantly, refresh silently in background
   const fetcher = useCallback(async () => api('/api/courses'), [token]); // eslint-disable-line

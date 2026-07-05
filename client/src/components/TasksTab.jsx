@@ -358,8 +358,7 @@ const TasksTab = ({ onOpenThread, allUsers = [], highlightedTaskId, clearHighlig
   );
 };
 
-/* ─── Avatar stack (null-safe) ──────────────────────────────────────────── */
-const AvatarStack = ({ users = [], max = 3 }) => {
+const AvatarStack = React.memo(({ users = [], max = 3 }) => {
   const valid = users.filter(Boolean);
   const shown = valid.slice(0, max);
   const extra = valid.length - max;
@@ -380,7 +379,7 @@ const AvatarStack = ({ users = [], max = 3 }) => {
       )}
     </div>
   );
-};
+});
 
 /* ─── Multi-member picker ───────────────────────────────────────────────── */
 const MemberPicker = ({ value = [], onChange, allUsers, label = 'Assign to' }) => {
@@ -572,7 +571,7 @@ const MemberPicker = ({ value = [], onChange, allUsers, label = 'Assign to' }) =
 };
 
 /* ─── Task card ─────────────────────────────────────────────────────────── */
-const TaskCard = ({ task, col, meta, currentUser, activeMenuId, setActiveMenuId, onEdit, onDelete, allUsers, onDiscuss, onAdvance, onBack, isHighlighted }) => {
+const TaskCard_ = ({ task, col, meta, currentUser, activeMenuId, setActiveMenuId, onEdit, onDelete, allUsers, onDiscuss, onAdvance, onBack, isHighlighted }) => {
   const StatusIcon = meta.icon;
   const isMenuOpen = activeMenuId === task._id;
   const canEdit = task.creator?._id === currentUser?.id || ['admin', 'super_user'].includes(currentUser?.role);
@@ -722,9 +721,11 @@ const TaskCard = ({ task, col, meta, currentUser, activeMenuId, setActiveMenuId,
           </button>
         </div>
       </div>
-    </article>
+      </article>
   );
 };
+
+const TaskCard = React.memo(TaskCard_);
 
 /* ─── Compose task modal ───────────────────────────────────────────────── */
 const ComposeTaskModal = ({ open, onClose, allUsers, onCreated, onFailed, initialData }) => {
