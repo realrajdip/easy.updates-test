@@ -85,6 +85,7 @@ const ToastCard = ({ toast, onDismiss }) => {
       }}
       className={`pointer-events-auto flex items-start gap-3 bg-surface-2 rounded-md px-3.5 py-3 border shadow-[0_10px_30px_rgba(0,0,0,0.4)] ${tone}`}
     >
+      <Icon className="h-4 w-4 shrink-0 mt-0.5" />
       <p className="flex-1 text-[13px] leading-snug text-ink tracking-tight">{toast.message}</p>
       <button
         type="button"

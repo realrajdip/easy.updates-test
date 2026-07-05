@@ -171,6 +171,7 @@ const UpdatesTab = ({ onOpenThread, allUsers = [], highlightedUpdateId, clearHig
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const updated = await res.json();
       setUpdates((prev) => prev.map((u) => (u._id === updateId ? updated : u)));
+      toast.success('Update acknowledged!');
     } catch (err) {
       console.error(err);
       setUpdates(snapshot);
