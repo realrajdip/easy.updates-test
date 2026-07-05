@@ -305,7 +305,7 @@ const UpdatesTab = ({ onOpenThread, allUsers = [], highlightedUpdateId, clearHig
               {pendingCount} update{pendingCount === 1 ? '' : 's'} to acknowledge.
             </p>
             <p className="text-[12px] opacity-70 mt-1 font-medium tracking-tight">
-              {updates.length} total update{updates.length === 1 ? '' : 's'} on record
+              {safeUpdates.length} total update{safeUpdates.length === 1 ? '' : 's'} on record
             </p>
           </div>
           <p className="text-[13px] opacity-80 tracking-tight">
