@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import ReactDOM from 'react-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Pin, Calendar, RefreshCcw, Send, MessageSquare, Check, X, Plus,
   Users, Clock, Repeat2, Loader2, MoreHorizontal, Trash2, Edit2,
