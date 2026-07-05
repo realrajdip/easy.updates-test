@@ -560,8 +560,7 @@ const UpdatesTab = ({ onOpenThread, allUsers = [], highlightedUpdateId, clearHig
       >
         <div className="p-6 flex flex-col gap-6">
           <div>
-            <h3 className="text-lg font-bold text-ink flex items-center gap-2">
-              <Trash2 className="h-5 w-5 text-danger" />
+            <h3 className="text-lg font-bold text-ink">
               Delete Update
             </h3>
             <p className="text-[13px] text-ink-muted mt-2 leading-relaxed">
