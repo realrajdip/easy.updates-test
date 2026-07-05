@@ -114,7 +114,7 @@ const HoverableAvatar = ({ u, zIndex, marginRight }) => {
 
 /* ─── Stacked online avatars ────────────────────────────────────────────── */
 const OnlineAvatars = ({ onlineUsers, currentUserId }) => {
-  const live = onlineUsers.filter((u) => u.status === 'online' && u._id !== currentUserId);
+  const live = onlineUsers.filter((u) => u.status === 'online' && String(u._id) !== String(currentUserId));
 
   if (live.length === 0) {
     return (

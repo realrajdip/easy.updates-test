@@ -29,7 +29,10 @@ export const AuthProvider = ({ children }) => {
         toast.success(`Your account has been approved!`);
       }
 
-      return { ...prev, ...updates };
+      const merged = { ...prev, ...updates };
+      if (merged._id && !merged.id) merged.id = String(merged._id);
+      if (merged.id && !merged._id) merged._id = String(merged.id);
+      return merged;
     });
   };
 
@@ -37,7 +40,12 @@ export const AuthProvider = ({ children }) => {
   const handleAuthSuccess = (newToken, userData, pendingState = false) => {
     localStorage.setItem('token', newToken);
     setToken(newToken);
-    setUser(userData);
+    const normalized = userData ? { ...userData } : null;
+    if (normalized) {
+      if (normalized._id && !normalized.id) normalized.id = String(normalized._id);
+      if (normalized.id && !normalized._id) normalized._id = String(normalized.id);
+    }
+    setUser(normalized);
     setIs2faPending(pendingState);
   };
 
@@ -50,7 +58,12 @@ export const AuthProvider = ({ children }) => {
       });
       const data = await response.json();
       if (response.ok) {
-        setUser(data.user);
+        const normalized = data.user ? { ...data.user } : null;
+        if (normalized) {
+          if (normalized._id && !normalized.id) normalized.id = String(normalized._id);
+          if (normalized.id && !normalized._id) normalized._id = String(normalized.id);
+        }
+        setUser(normalized);
         setIs2faPending(data.is2faPending);
         if (data.qrCode && data.secret && data.backupCodes) {
           setTwoFactorSetupData({
