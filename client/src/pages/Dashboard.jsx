@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Layers, FileText, ClipboardList, GraduationCap,
-  Bell, LogOut, Check, X, Shield, Settings
+  Bell, LogOut, Check, X, Shield, Settings, Loader2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -11,12 +11,21 @@ import { API_URL } from '../config';
 import UpdatesTab from '../components/UpdatesTab';
 import TasksTab from '../components/TasksTab';
 import PersonalDashboard from '../components/PersonalDashboard';
-import ThreadDrawer from '../components/ThreadDrawer';
 import UserAvatar, { UserPresenceCard } from '../components/UserAvatar';
-import AdminPanel from '../components/AdminPanel';
-import SettingsTab from '../components/SettingsTab';
-import CoursesTab from '../components/CoursesTab';
 import Select from '../components/Select';
+
+// Heavy tabs — loaded on demand (splits the initial bundle)
+const CoursesTab   = lazy(() => import('../components/CoursesTab'));
+const AdminPanel   = lazy(() => import('../components/AdminPanel'));
+const SettingsTab  = lazy(() => import('../components/SettingsTab'));
+const ThreadDrawer = lazy(() => import('../components/ThreadDrawer'));
+
+/* ─── Lazy-load spinner ──────────────────────────────────────────────────── */
+const TabSpinner = () => (
+  <div className="flex items-center justify-center h-64 text-ink-dim">
+    <Loader2 className="h-6 w-6 animate-spin" />
+  </div>
+);
 
 /* ─── Notifications panel ─────────────────────────────────────────────── */
 const NotificationPanel = ({ notifications, onNotifClick, onMarkAll, onClose }) => {
@@ -498,38 +507,57 @@ const Dashboard = () => {
         />
 
         <main className="flex-1 px-5 md:px-8 py-8 pb-24 md:pb-8 min-w-0">
-          {activeTab === 'updates' && (
+          {/* Always-mounted tabs — hidden via CSS to preserve state & avoid re-fetching */}
+          <div style={{ display: activeTab === 'updates' ? '' : 'none' }}>
             <UpdatesTab
               onOpenThread={handleOpenThread}
               allUsers={allUsers}
               highlightedUpdateId={highlightedUpdateId}
               clearHighlight={() => setHighlightedUpdateId(null)}
             />
-          )}
-          {activeTab === 'tasks' && (
+          </div>
+          <div style={{ display: activeTab === 'tasks' ? '' : 'none' }}>
             <TasksTab
               onOpenThread={handleOpenThread}
               allUsers={allUsers}
               highlightedTaskId={highlightedTaskId}
               clearHighlight={() => setHighlightedTaskId(null)}
             />
+          </div>
+          <div style={{ display: activeTab === 'personal' ? '' : 'none' }}>
+            <PersonalDashboard onOpenThread={handleOpenThread} allUsers={allUsers} />
+          </div>
+
+          {/* Lazy-loaded tabs — only mount when first visited */}
+          {activeTab === 'courses' && (
+            <Suspense fallback={<TabSpinner />}>
+              <CoursesTab allUsers={allUsers} />
+            </Suspense>
           )}
-          {activeTab === 'courses' && <CoursesTab allUsers={allUsers} />}
-          {activeTab === 'personal' && <PersonalDashboard onOpenThread={handleOpenThread} allUsers={allUsers} />}
-          {activeTab === 'admin' && (user.role === 'admin' || user.role === 'super_user') && <AdminPanel />}
-          {activeTab === 'settings' && <SettingsTab />}
+          {activeTab === 'admin' && (user.role === 'admin' || user.role === 'super_user') && (
+            <Suspense fallback={<TabSpinner />}>
+              <AdminPanel />
+            </Suspense>
+          )}
+          {activeTab === 'settings' && (
+            <Suspense fallback={<TabSpinner />}>
+              <SettingsTab />
+            </Suspense>
+          )}
         </main>
       </div>
 
       <MobileNav activeTab={activeTab} onSelectTab={handleSelectTab} user={user} />
 
       {threadDetails && (
-        <ThreadDrawer
-          type={threadDetails.type}
-          id={threadDetails.id}
-          onClose={() => setThreadDetails(null)}
-          allUsers={allUsers}
-        />
+        <Suspense fallback={null}>
+          <ThreadDrawer
+            type={threadDetails.type}
+            id={threadDetails.id}
+            onClose={() => setThreadDetails(null)}
+            allUsers={allUsers}
+          />
+        </Suspense>
       )}
     </div>
   );

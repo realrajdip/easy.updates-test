@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import ReactDOM from 'react-dom';
 import {
@@ -14,6 +14,7 @@ import UserAvatar from './UserAvatar';
 import Modal, { useModalTitleId } from './Modal';
 import DateTimePicker from './DateTimePicker';
 import ConfirmModal from './ConfirmModal';
+import { useStaleData } from '../hooks/useStaleData';
 
 /* ── Helper: normalise assignedTo to always be an array ─────────────────── */
 const toArray = (v) => {
@@ -49,8 +50,6 @@ const TasksTab = ({ onOpenThread, allUsers = [], highlightedTaskId, clearHighlig
   const { token, user } = useAuth();
   const { socket } = useSocket();
   const toast = useToast();
-  const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
 
@@ -59,9 +58,31 @@ const TasksTab = ({ onOpenThread, allUsers = [], highlightedTaskId, clearHighlig
   const [activeHighlightId, setActiveHighlightId] = useState(null);
   const [activeStatusTab, setActiveStatusTab] = useState('pending');
 
+  // Stale-while-revalidate: show cached data immediately, refresh silently
+  const fetcher = useMemo(() => async () => {
+    const res = await fetch(`${API_URL}/api/tasks`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error(`Server returned ${res.status}`);
+    return res.json();
+  }, [token]);
+
+  const {
+    data: tasks,
+    loading,
+    error: fetchError,
+    setDataAndCache: setTasks,
+  } = useStaleData('tasks', fetcher);
+
+  const safeTasks = tasks || [];
+
   useEffect(() => {
-    if (highlightedTaskId && tasks.length > 0) {
-      const targetTask = tasks.find(t => String(t._id) === String(highlightedTaskId));
+    if (fetchError) toast.error('Could not load tasks. Check your connection.');
+  }, [fetchError]); // eslint-disable-line
+
+  useEffect(() => {
+    if (highlightedTaskId && safeTasks.length > 0) {
+      const targetTask = safeTasks.find(t => String(t._id) === String(highlightedTaskId));
       if (targetTask && targetTask.status) {
         setActiveStatusTab(targetTask.status);
       }
@@ -98,35 +119,17 @@ const TasksTab = ({ onOpenThread, allUsers = [], highlightedTaskId, clearHighlig
     }
   }, [highlightedTaskId]); // eslint-disable-line
 
-  const fetchTasks = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/api/tasks`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error(`Server returned ${res.status}`);
-      setTasks(await res.json());
-    } catch (e) {
-      console.error(e);
-      toast.error('Could not load tasks. Check your connection.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchTasks();
-    // eslint-disable-next-line
-  }, []);
-
   useEffect(() => {
     if (!socket) return;
     const onNew = (t) =>
-      setTasks((prev) => (prev.some((x) => x._id === t._id) ? prev : [t, ...prev]));
+      setTasks((prev) => {
+        const p = prev || [];
+        return p.some((x) => x._id === t._id) ? p : [t, ...p];
+      });
     const onStatus = (t) =>
-      setTasks((prev) => prev.map((x) => (x._id === t._id ? t : x)));
+      setTasks((prev) => (prev || []).map((x) => (x._id === t._id ? t : x)));
     const onDeleted = (id) =>
-      setTasks((prev) => prev.filter((x) => x._id !== id));
+      setTasks((prev) => (prev || []).filter((x) => x._id !== id));
 
     socket.on('task:new', onNew);
     socket.on('task:status_changed', onStatus);
@@ -191,9 +194,9 @@ const TasksTab = ({ onOpenThread, allUsers = [], highlightedTaskId, clearHighlig
   };
 
   const byStatus = {
-    pending: tasks.filter((t) => t.status === 'pending'),
-    in_progress: tasks.filter((t) => t.status === 'in_progress'),
-    completed: tasks.filter((t) => t.status === 'completed'),
+    pending: safeTasks.filter((t) => t.status === 'pending'),
+    in_progress: safeTasks.filter((t) => t.status === 'in_progress'),
+    completed: safeTasks.filter((t) => t.status === 'completed'),
   };
 
   return (
@@ -208,7 +211,7 @@ const TasksTab = ({ onOpenThread, allUsers = [], highlightedTaskId, clearHighlig
             forward.
           </h1>
           <p className="text-[15px] text-ink-muted max-w-md tracking-tight">
-            {tasks.length === 0
+            {safeTasks.length === 0
               ? 'Assign the first task to get the board moving.'
               : `${byStatus.in_progress.length} active · ${byStatus.pending.length} to do · ${byStatus.completed.length} done.`}
           </p>

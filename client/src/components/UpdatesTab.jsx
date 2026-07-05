@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import { motion } from 'framer-motion';
 import {
@@ -15,6 +15,7 @@ import Modal, { useModalTitleId } from './Modal';
 import DateTimePicker from './DateTimePicker';
 import Select from './Select';
 import ConfirmModal from './ConfirmModal';
+import { useStaleData } from '../hooks/useStaleData';
 
 /* ── Helper: normalise assignedTo to always be an array ─────────────────── */
 const toArray = (v) => {
@@ -35,15 +36,34 @@ const UpdatesTab = ({ onOpenThread, allUsers = [], highlightedUpdateId, clearHig
   const { token, user } = useAuth();
   const { socket } = useSocket();
   const toast = useToast();
-  const [updates, setUpdates] = useState([]);
   const [filter, setFilter] = useState('all');
-  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingUpdate, setEditingUpdate] = useState(null);
 
   const [activeMenuId, setActiveMenuId] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [activeHighlightId, setActiveHighlightId] = useState(null);
+
+  // Stale-while-revalidate: show cached data immediately, refresh silently
+  const fetcher = useMemo(() => async () => {
+    const res = await fetch(`${API_URL}/api/updates`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error(`Server returned ${res.status}`);
+    return res.json();
+  }, [token]);
+
+  const {
+    data: updates,
+    loading,
+    error: fetchError,
+    refresh: refreshUpdates,
+    setDataAndCache: setUpdates,
+  } = useStaleData('updates', fetcher);
+
+  useEffect(() => {
+    if (fetchError) toast.error('Could not load updates. Check your connection.');
+  }, [fetchError]); // eslint-disable-line
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -77,31 +97,11 @@ const UpdatesTab = ({ onOpenThread, allUsers = [], highlightedUpdateId, clearHig
     }
   }, [highlightedUpdateId]); // eslint-disable-line
 
-  const fetchUpdates = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/api/updates`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error(`Server returned ${res.status}`);
-      setUpdates(await res.json());
-    } catch (e) {
-      console.error(e);
-      toast.error('Could not load updates. Check your connection.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchUpdates();
-    // eslint-disable-next-line
-  }, []);
-
   useEffect(() => {
     if (!socket) return;
     const onNew = (newUpdate) =>
       setUpdates((prev) => {
+        if (!prev) return [{ ...newUpdate, isJustAdded: true }];
         if (prev.some((u) => u._id === newUpdate._id)) return prev;
         const next = [{ ...newUpdate, isJustAdded: true }, ...prev];
         return next.sort((a, b) => {
@@ -112,11 +112,11 @@ const UpdatesTab = ({ onOpenThread, allUsers = [], highlightedUpdateId, clearHig
         });
       });
     const onAck = (u) =>
-      setUpdates((prev) => prev.map((x) => (x._id === u._id ? u : x)));
+      setUpdates((prev) => (prev || []).map((x) => (x._id === u._id ? u : x)));
 
     const onEdited = (editedUpdate) => {
       setUpdates((prev) => {
-        const next = prev.map((x) => (x._id === editedUpdate._id ? editedUpdate : x));
+        const next = (prev || []).map((x) => (x._id === editedUpdate._id ? editedUpdate : x));
         return next.sort((a, b) => {
           if (a.isPinned && b.isPinned) return new Date(b.createdAt) - new Date(a.createdAt);
           if (a.isPinned && !b.isPinned) return -1;
@@ -127,7 +127,7 @@ const UpdatesTab = ({ onOpenThread, allUsers = [], highlightedUpdateId, clearHig
     };
 
     const onDeleted = ({ id }) => {
-      setUpdates((prev) => prev.filter((u) => u._id !== id));
+      setUpdates((prev) => (prev || []).filter((u) => u._id !== id));
     };
 
     socket.on('update:new', onNew);
@@ -156,7 +156,7 @@ const UpdatesTab = ({ onOpenThread, allUsers = [], highlightedUpdateId, clearHig
     let snapshot;
     setUpdates((prev) => {
       snapshot = prev;
-      return prev.map((u) => {
+      return (prev || []).map((u) => {
         if (u._id !== updateId) return u;
         if (u.acknowledgedBy.some((a) => (a._id || a) === currentUserId)) return u;
         return { ...u, acknowledgedBy: [...u.acknowledgedBy, optimisticAck] };
@@ -170,11 +170,11 @@ const UpdatesTab = ({ onOpenThread, allUsers = [], highlightedUpdateId, clearHig
       });
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const updated = await res.json();
-      setUpdates((prev) => prev.map((u) => (u._id === updateId ? updated : u)));
+      setUpdates((prev) => (prev || []).map((u) => (u._id === updateId ? updated : u)));
       toast.success('Update acknowledged!');
     } catch (err) {
       console.error(err);
-      setUpdates(snapshot);
+      if (snapshot != null) setUpdates(snapshot);
       toast.error('Acknowledge failed — please try again.');
     }
   };
@@ -234,7 +234,9 @@ const UpdatesTab = ({ onOpenThread, allUsers = [], highlightedUpdateId, clearHig
     }
   };
 
-  const filtered = updates.filter((u) => {
+  const safeUpdates = updates || [];
+
+  const filtered = safeUpdates.filter((u) => {
     const currentUserId = user?.id || user?._id;
     const isArchived = isFullyAcknowledged(u);
     if (filter === 'archive') {
@@ -258,7 +260,7 @@ const UpdatesTab = ({ onOpenThread, allUsers = [], highlightedUpdateId, clearHig
     return true;
   });
 
-  const pendingCount = updates.filter((u) => {
+  const pendingCount = safeUpdates.filter((u) => {
     const currentUserId = user?.id || user?._id;
     const creatorId = u.creator?._id || u.creator;
     return (
