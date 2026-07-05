@@ -18,23 +18,56 @@ const usersRoutes = require('./routes/users');
 const adminRoutes = require('./routes/admin');
 const coursesRoutes = require('./routes/courses');
 const { initSocket } = require('./socket/presence');
-
 const compression = require('compression');
+const helmet = require('helmet');
+const mongoSanitize = require('express-mongo-sanitize');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const server = http.createServer(app);
 
-// Middlewares
-app.use(compression()); // gzip all responses — 3-5x smaller JSON payloads
-app.use(cors({
-  origin: true, // Allow frontend origin
+// Secure CORS policy: Allow development, intranets, and deployed github.io pages
+const allowedOrigins = [
+  /^https?:\/\/localhost(:\d+)?$/,
+  /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
+  /^https?:\/\/192\.168\.\d+\.\d+(:\d+)?$/,
+  /^https?:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/,
+  /^https?:\/\/172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+(:\d+)?$/,
+  /^https?:\/\/[a-zA-Z0-9-]+\.github\.io/
+];
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // Allow server-to-server or tools like Postman
+    const isAllowed = allowedOrigins.some((regex) => regex.test(origin));
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      callback(new Error('Blocked by CORS policy (Unauthorized Origin)'));
+    }
+  },
   credentials: true
-}));
+};
+
+// Rate limiter for authentication endpoints to prevent brute-force
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per window
+  message: { message: 'Too many login attempts from this IP. Please try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Middlewares
+app.use(helmet()); // Secure HTTP headers
+app.use(mongoSanitize()); // Prevent NoSQL Injection attacks
+app.use(compression()); // gzip all responses
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
 
 // REST Route mappings
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/updates', updatesRoutes);
 app.use('/api/tasks', tasksRoutes);
 app.use('/api/notifications', notificationsRoutes);

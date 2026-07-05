@@ -1,0 +1,11 @@
+- [x] 1. Dashboard.jsx — persist CoursesTab + AdminPanel + SettingsTab via display:none
+- [x] 2. CoursesTab.jsx — SWR cache for course list (useStaleData)
+- [x] 3. AdminPanel.jsx — SWR cache for user list (useStaleData)
+- [x] 4. PersonalDashboard.jsx — read from shared SWR cache (no extra fetch)
+- [x] 5. UpdatesTab.jsx — stagger fade-in on update cards
+- [x] 6. TasksTab.jsx — stagger fade-in on task cards per column
+- [x] 7. ThreadDrawer.jsx — SWR cache per thread key
+- [x] 8. Server gzip compression (shrink API responses 3-5×)
+- [x] 9. React.memo on heavy components (UserAvatar, UserPresenceCard, TaskCard, AvatarStack)
+- [x] 10. Global Command-Palette Search overlay (matching updates, tasks, tracks; keyboard/shortcut navigation)
+- [x] 11. Build + deploy + push
