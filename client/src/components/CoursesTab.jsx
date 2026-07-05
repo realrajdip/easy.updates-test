@@ -1263,9 +1263,16 @@ const TaskActivityDetail = ({ task, response, done }) => {
   return null;
 };
 
-const ParticipantActivityModal = ({ open, onClose, row, course }) => {
+const ParticipantActivityModal = ({ open, onClose, row: rawRow, course }) => {
   const titleId = useModalTitleId();
-  if (!open || !row) return <Modal open={false} onClose={onClose} />;
+  const [cachedRow, setCachedRow] = useState(null);
+
+  useEffect(() => {
+    if (rawRow) setCachedRow(rawRow);
+  }, [rawRow]);
+
+  const row = rawRow || cachedRow;
+  if (!row) return <Modal open={false} onClose={onClose} />;
 
   const doneSet = new Set((row.completedTaskIds || []).map(String));
   const responseMap = new Map();
@@ -1380,9 +1387,16 @@ const ParticipantActivityModal = ({ open, onClose, row, course }) => {
 
 const TaskSubmissionsModal = ({ open, onClose, rows, loading, ctx, onOpenActivity }) => {
   const titleId = useModalTitleId();
-  if (!open || !ctx) return <Modal open={false} onClose={onClose} />;
+  const [cachedCtx, setCachedCtx] = useState(null);
 
-  const { task, lessonTitle } = ctx;
+  useEffect(() => {
+    if (ctx) setCachedCtx(ctx);
+  }, [ctx]);
+
+  const activeCtx = ctx || cachedCtx;
+  if (!activeCtx) return <Modal open={false} onClose={onClose} />;
+
+  const { task, lessonTitle } = activeCtx;
   const tmeta = taskTypeMeta(task.type);
   const TIcon = tmeta.icon;
 
