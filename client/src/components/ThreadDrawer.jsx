@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import ReactDOM from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, Eye, SmilePlus, CornerDownRight, MessageSquareDashed } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -302,9 +303,10 @@ const ThreadComposer = ({
 
   const handleSubmit = async () => {
     if (!newComment.trim() || isSubmitting) return;
+    const text = newComment;
+    setNewComment('');       // clear instantly — don't wait for server
     setIsSubmitting(true);
-    await onSubmit(newComment);
-    setNewComment('');
+    await onSubmit(text);
     setIsSubmitting(false);
   };
 
@@ -525,6 +527,28 @@ const ThreadDrawer = ({ type, id, onClose, allUsers = [] }) => {
     if (!commentText.trim()) return;
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     if (isTypingRef.current) { isTypingRef.current = false; socket?.emit('thread:stop_typing', { threadId: id }); }
+
+    // Build optimistic comment — shown instantly before server confirms
+    const tempId = `optimistic-${Date.now()}`;
+    const optimistic = {
+      _id: tempId,
+      content: commentText,
+      author: {
+        _id: user?._id || user?.id,
+        username: user?.username,
+        avatarColor: user?.avatarColor,
+      },
+      createdAt: new Date().toISOString(),
+      reactions: [],
+      readBy: [],
+      parentId: replyTo?.id ?? null,
+      _isOptimistic: true,
+    };
+
+    // Add to UI immediately + clear input
+    setComments((prev) => [...(prev || []), optimistic]);
+    setReplyTo(null);
+
     try {
       const body = { content: commentText };
       if (replyTo) body.parentId = replyTo.id;
@@ -535,11 +559,20 @@ const ThreadDrawer = ({ type, id, onClose, allUsers = [] }) => {
       });
       if (res.ok) {
         const c = await res.json();
-        setComments((prev) => (prev.some((x) => x._id === c._id) ? prev : [...prev, c]));
-        setNewComment('');
-        setReplyTo(null);
+        // Replace optimistic placeholder with real comment
+        setComments((prev) =>
+          (prev || []).some((x) => x._id === c._id)
+            ? (prev || []).filter((x) => x._id !== tempId) // socket already added real one
+            : (prev || []).map((x) => (x._id === tempId ? c : x))
+        );
+      } else {
+        // Server rejected — remove optimistic comment
+        setComments((prev) => (prev || []).filter((x) => x._id !== tempId));
       }
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      setComments((prev) => (prev || []).filter((x) => x._id !== tempId));
+    }
   };
 
   const toggleReaction = async (commentId, emoji) => {
@@ -765,7 +798,14 @@ const ThreadDrawer = ({ type, id, onClose, allUsers = [] }) => {
       const hasReplies = replies.length > 0;
 
       rendered.push(
-        <div key={root._id} className="mb-4">
+        <motion.div
+          key={root._id}
+          className="mb-4"
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: root._isOptimistic ? 0.7 : 1, y: 0 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+          style={root._isOptimistic ? { filter: 'saturate(0.6)' } : undefined}
+        >
           {/* Root message */}
           {renderMessage(root, 0, false)}
 
@@ -779,7 +819,7 @@ const ThreadDrawer = ({ type, id, onClose, allUsers = [] }) => {
               ))}
             </div>
           )}
-        </div>
+        </motion.div>
       );
 
       i = j;
