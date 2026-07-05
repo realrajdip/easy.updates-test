@@ -281,7 +281,7 @@ const UserAvatar = ({
   const initials = (resolvedUser.username || '??').slice(0, 2).toUpperCase();
   const s        = SIZE[size] || SIZE.sm;
   const isRevoked = resolvedUser.approvalStatus === 'rejected';
-  const isOnline = !isRevoked && (showDot || (resolvedUser.status === 'online' && resolvedUser.statusOverride !== 'offline'));
+  const isOnline = !isRevoked && (showDot || onlineUsers.some(u => String(u._id) === String(userId)));
   const isManualOffline = !isRevoked && resolvedUser.statusOverride === 'offline';
   const bgColor  = resolvedUser.avatarColor || '#3b82f6';
 

@@ -120,8 +120,8 @@ router.post('/', protect, async (req, res) => {
 
     const savedTask = await newTask.save();
     const populatedTask = await Task.findById(savedTask._id)
-      .populate('creator', 'username avatarColor status lastSeen')
-      .populate('assignedTo', 'username avatarColor status lastSeen');
+      .populate('creator', 'username avatarColor status statusOverride lastSeen')
+      .populate('assignedTo', 'username avatarColor status statusOverride lastSeen');
 
     const io = req.app.get('socketio');
     if (io) io.emit('task:new', populatedTask);
@@ -156,8 +156,8 @@ router.get('/', protect, async (req, res) => {
 
   try {
     const tasks = await Task.find()
-      .populate('creator', 'username avatarColor status lastSeen')
-      .populate('assignedTo', 'username avatarColor status lastSeen')
+      .populate('creator', 'username avatarColor status statusOverride lastSeen')
+      .populate('assignedTo', 'username avatarColor status statusOverride lastSeen')
       .sort({ createdAt: -1 });
 
     res.json(tasks);
@@ -177,8 +177,8 @@ router.get('/:id', protect, async (req, res) => {
 
   try {
     const task = await Task.findById(req.params.id)
-      .populate('creator', 'username avatarColor status lastSeen')
-      .populate('assignedTo', 'username avatarColor status lastSeen');
+      .populate('creator', 'username avatarColor status statusOverride lastSeen')
+      .populate('assignedTo', 'username avatarColor status statusOverride lastSeen');
 
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
@@ -216,8 +216,8 @@ router.put('/:id/status', protect, async (req, res) => {
     await task.save();
 
     const populatedTask = await Task.findById(req.params.id)
-      .populate('creator', 'username avatarColor status lastSeen')
-      .populate('assignedTo', 'username avatarColor status lastSeen');
+      .populate('creator', 'username avatarColor status statusOverride lastSeen')
+      .populate('assignedTo', 'username avatarColor status statusOverride lastSeen');
 
     const io = req.app.get('socketio');
     if (io) io.emit('task:status_changed', populatedTask);
@@ -239,9 +239,9 @@ router.get('/:id/comments', protect, async (req, res) => {
 
   try {
     const comments = await Comment.find({ taskId: req.params.id })
-      .populate('author', 'username avatarColor status lastSeen')
-      .populate('reactions.user', 'username avatarColor status lastSeen')
-      .populate('readBy', 'username avatarColor status lastSeen')
+      .populate('author', 'username avatarColor status statusOverride lastSeen')
+      .populate('reactions.user', 'username avatarColor status statusOverride lastSeen')
+      .populate('readBy', 'username avatarColor status statusOverride lastSeen')
       .sort({ createdAt: 1 });
 
     res.json(comments);
@@ -285,10 +285,10 @@ router.post('/:id/comments', protect, async (req, res) => {
     await comment.save();
 
     const populatedComment = await Comment.findById(comment._id)
-      .populate('author', 'username avatarColor status lastSeen')
+      .populate('author', 'username avatarColor status statusOverride lastSeen')
       .populate('mentions', 'username')
-      .populate('reactions.user', 'username avatarColor status lastSeen')
-      .populate('readBy', 'username avatarColor status lastSeen');
+      .populate('reactions.user', 'username avatarColor status statusOverride lastSeen')
+      .populate('readBy', 'username avatarColor status statusOverride lastSeen');
 
     const io = req.app.get('socketio');
 
@@ -303,8 +303,8 @@ router.post('/:id/comments', protect, async (req, res) => {
 
       // Emit updated task so all clients refresh the assignee list live
       const updatedTask = await Task.findById(task._id)
-        .populate('creator', 'username avatarColor status lastSeen')
-        .populate('assignedTo', 'username avatarColor status lastSeen');
+        .populate('creator', 'username avatarColor status statusOverride lastSeen')
+        .populate('assignedTo', 'username avatarColor status statusOverride lastSeen');
       if (io) io.emit('task:updated', updatedTask);
 
       // Notify newly-added members
@@ -377,8 +377,8 @@ router.put('/:id', protect, async (req, res) => {
 
     const savedTask = await task.save();
     const populatedTask = await Task.findById(savedTask._id)
-      .populate('creator', 'username avatarColor status lastSeen')
-      .populate('assignedTo', 'username avatarColor status lastSeen');
+      .populate('creator', 'username avatarColor status statusOverride lastSeen')
+      .populate('assignedTo', 'username avatarColor status statusOverride lastSeen');
 
     const io = req.app.get('socketio');
 
