@@ -291,7 +291,7 @@ const UpdatesTab = ({ onOpenThread, allUsers = [], highlightedUpdateId, clearHig
               <Plus className="h-4 w-4" />
               New update
             </button>
-            <button onClick={fetchUpdates} className="btn btn-secondary">
+            <button onClick={refreshUpdates} className="btn btn-secondary">
               <RefreshCcw className="h-3.5 w-3.5" />
               Refresh
             </button>
