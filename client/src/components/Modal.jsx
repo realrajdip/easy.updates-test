@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useRef } from 'react';
 import ReactDOM from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 
 /**
  * Modal — accessible dialog primitive.
@@ -127,7 +128,7 @@ const Modal = ({
     return () => node?.removeEventListener('keydown', onKeyDown);
   }, [open]);
 
-  if (!open || typeof document === 'undefined') return null;
+  if (typeof document === 'undefined') return null;
 
   const alignClasses =
     align === 'bottom-sheet'
@@ -135,29 +136,45 @@ const Modal = ({
       : 'items-center p-4';
 
   return ReactDOM.createPortal(
-    <div
-      className={`fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm flex justify-center animate-fade-in ${alignClasses}`}
-      onMouseDown={(e) => {
-        // Close only when the click *starts* on the backdrop, so a drag-release
-        // inside the panel doesn't dismiss the modal.
-        if (e.target === e.currentTarget) onClose?.();
-      }}
-    >
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={describedBy}
-        tabIndex={-1}
-        style={{ maxWidth, ...(panelStyle || {}) }}
-        className={`surface-1 w-full overflow-y-auto no-scrollbar max-h-[92vh] md:max-h-[88vh] outline-none animate-scale-in border border-hairline ${align === 'bottom-sheet' ? 'rounded-t-xxl md:rounded-xxl' : 'rounded-xxl'
-          } ${className}`}
-      >
-        {/* Children render their own header/body/footer; the title must use the `titleId` from context */}
-        <ModalTitleContext.Provider value={titleId}>{children}</ModalTitleContext.Provider>
-      </div>
-    </div>,
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+          className={`fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm flex justify-center ${alignClasses}`}
+          onMouseDown={(e) => {
+            // Close only when the click *starts* on the backdrop, so a drag-release
+            // inside the panel doesn't dismiss the modal.
+            if (e.target === e.currentTarget) onClose?.();
+          }}
+        >
+          <motion.div
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            aria-describedby={describedBy}
+            tabIndex={-1}
+            initial={align === 'bottom-sheet' ? { y: '100%', scale: 1 } : { scale: 0.95, opacity: 0 }}
+            animate={align === 'bottom-sheet' ? { y: 0, scale: 1 } : { scale: 1, opacity: 1 }}
+            exit={align === 'bottom-sheet' ? { y: '100%', scale: 1 } : { scale: 0.95, opacity: 0 }}
+            transition={{
+              type: 'spring',
+              damping: 26,
+              stiffness: 340
+            }}
+            style={{ maxWidth, ...(panelStyle || {}) }}
+            className={`surface-1 w-full overflow-y-auto no-scrollbar max-h-[92vh] md:max-h-[88vh] outline-none border border-hairline ${align === 'bottom-sheet' ? 'rounded-t-xxl md:rounded-xxl' : 'rounded-xxl'
+              } ${className}`}
+          >
+            {/* Children render their own header/body/footer; the title must use the `titleId` from context */}
+            <ModalTitleContext.Provider value={titleId}>{children}</ModalTitleContext.Provider>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>,
     document.body
   );
 };

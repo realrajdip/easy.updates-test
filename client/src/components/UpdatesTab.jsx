@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import ReactDOM from 'react-dom';
+import { motion } from 'framer-motion';
 import {
   Pin, Calendar, RefreshCcw, Send, MessageSquare, Check, X, Plus,
   Users, Clock, Repeat2, Loader2, MoreHorizontal, Trash2, Edit2,
@@ -322,8 +323,16 @@ const UpdatesTab = ({ onOpenThread, allUsers = [], highlightedUpdateId, clearHig
             role="tab"
             aria-selected={filter === f.key}
             onClick={() => setFilter(f.key)}
-            className={`pill-tab ${filter === f.key ? 'is-active' : ''} relative`}
+            className={`pill-tab ${filter === f.key ? 'is-active has-motion' : ''} relative z-10`}
+            style={{ WebkitTapHighlightColor: 'transparent' }}
           >
+            {filter === f.key && (
+              <motion.span
+                layoutId="updates-filter-bg"
+                className="absolute inset-0 bg-surface-2 rounded-pill -z-10"
+                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+              />
+            )}
             {f.label}
             {f.key === 'pending' && pendingCount > 0 && (
               <span className="absolute top-1.5 right-2 w-1.5 h-1.5 rounded-full bg-success animate-pulse" />

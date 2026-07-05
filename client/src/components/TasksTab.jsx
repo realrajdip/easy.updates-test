@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import ReactDOM from 'react-dom';
 import {
   Plus, ListTodo, Play, CheckCircle2, Clock, MessageSquare, X, Send,
@@ -252,8 +253,16 @@ const TasksTab = ({ onOpenThread, allUsers = [], highlightedTaskId, clearHighlig
                   <button
                     key={col}
                     onClick={() => setActiveStatusTab(col)}
-                    className={`pill-tab ${activeStatusTab === col ? 'is-active' : ''}`}
+                    className={`pill-tab ${activeStatusTab === col ? 'is-active has-motion' : ''} relative z-10`}
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
                   >
+                    {activeStatusTab === col && (
+                      <motion.span
+                        layoutId="tasks-filter-bg"
+                        className="absolute inset-0 bg-surface-2 rounded-pill -z-10"
+                        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                      />
+                    )}
                     <Icon className="h-3.5 w-3.5" />
                     {meta.label}
                     <span className="text-[10px] text-ink-dim ml-1.5 tabular-nums">{count}</span>

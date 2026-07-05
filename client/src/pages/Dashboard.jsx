@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Layers, FileText, ClipboardList, GraduationCap,
   Bell, LogOut, Check, X, Shield, Settings
@@ -21,8 +22,12 @@ import Select from '../components/Select';
 const NotificationPanel = ({ notifications, onNotifClick, onMarkAll, onClose }) => {
   const unread = notifications.filter((n) => !n.isRead);
   return (
-    <div
-      className="absolute right-0 top-full mt-3 w-[340px] surface-2 z-50 rounded-xl overflow-hidden border border-hairline"
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95, y: -10 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95, y: -10 }}
+      transition={{ duration: 0.15, ease: 'easeOut' }}
+      className="absolute right-0 top-full mt-3 w-[340px] surface-2 z-50 rounded-xl overflow-hidden border border-hairline origin-top-right"
       style={{ boxShadow: '0 18px 48px rgba(0,0,0,0.55)' }}
     >
       <div className="flex items-center justify-between px-4 py-3 border-b border-hairline-soft">
@@ -76,7 +81,7 @@ const NotificationPanel = ({ notifications, onNotifClick, onMarkAll, onClose }) 
           ))
         )}
       </div>
-    </div>
+    </motion.div>
   );
 };
 
@@ -201,14 +206,16 @@ const TopBar = ({ user, onlineUsers, notifications, onNotifClick, onMarkAll, onL
               </span>
             )}
           </button>
-          {showNotifs && (
-            <NotificationPanel
-              notifications={notifications}
-              onNotifClick={onNotifClick}
-              onMarkAll={onMarkAll}
-              onClose={() => setShowNotifs(false)}
-            />
-          )}
+          <AnimatePresence>
+            {showNotifs && (
+              <NotificationPanel
+                notifications={notifications}
+                onNotifClick={onNotifClick}
+                onMarkAll={onMarkAll}
+                onClose={() => setShowNotifs(false)}
+              />
+            )}
+          </AnimatePresence>
         </div>
         <button onClick={onLogout} className="btn-icon" title="Sign out">
           <LogOut className="h-4 w-4" />

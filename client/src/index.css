@@ -405,6 +405,10 @@ input[type='checkbox'] {
   color: var(--color-ink);
 }
 
+.pill-tab.is-active.has-motion {
+  background-color: transparent !important;
+}
+
 /* ─── Gradient Spotlight Cards (signature) ──────────────────────────────── */
 .spotlight {
   border-radius: var(--r-xxl);
