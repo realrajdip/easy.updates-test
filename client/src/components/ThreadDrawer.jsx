@@ -6,6 +6,7 @@ import { useSocket } from '../context/SocketContext';
 import { API_URL } from '../config';
 import MentionsInput from './MentionsInput';
 import UserAvatar from './UserAvatar';
+import { useStaleData } from '../hooks/useStaleData';
 
 const QUICK_EMOJIS = ['👍', '✅', '🚨', '❤️', '😂', '😮'];
 const EXTRA_EMOJIS = ['🙌', '🔥', '💯', '🎉', '😢', '😡'];
@@ -369,9 +370,6 @@ const ThreadDrawer = ({ type, id, onClose, allUsers = [] }) => {
   const { token, user } = useAuth();
   const { socket } = useSocket();
 
-  const [detail, setDetail] = useState(null);
-  const [comments, setComments] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [replyTo, setReplyTo] = useState(null);
   const [typingUsers, setTypingUsers] = useState({});
   const [editingCommentId, setEditingCommentId] = useState(null);
@@ -390,29 +388,44 @@ const ThreadDrawer = ({ type, id, onClose, allUsers = [] }) => {
   const isDiscussion = type === 'discussion_update' || type === 'discussion_task';
   const isAcks = type === 'acks';
 
-  const fetchDetailsAndComments = async () => {
-    setLoading(true);
-    try {
-      const detailUrl = `${API_URL}/api/${isUpdate ? 'updates' : 'tasks'}/${id}`;
-      if (isDiscussion) {
-        const commentsUrl = `${API_URL}/api/${isUpdate ? 'updates' : 'tasks'}/${id}/comments`;
-        const [dRes, cRes] = await Promise.all([
-          fetch(detailUrl, { headers: { Authorization: `Bearer ${token}` } }),
-          fetch(commentsUrl, { headers: { Authorization: `Bearer ${token}` } }),
-        ]);
-        if (dRes.ok && cRes.ok) {
-          setDetail(await dRes.json());
-          setComments(await cRes.json());
-        }
-      } else {
-        const dRes = await fetch(detailUrl, { headers: { Authorization: `Bearer ${token}` } });
-        if (dRes.ok) setDetail(await dRes.json());
-      }
-    } catch (e) { console.error('Fetch error:', e); }
-    finally { setLoading(false); }
-  };
+  // SWR: cache comments per unique thread — reopening same thread is instant
+  const cacheKey = `thread-${type}-${id}`;
+  const fetcher = useCallback(async () => {
+    const detailUrl = `${API_URL}/api/${isUpdate ? 'updates' : 'tasks'}/${id}`;
+    if (isDiscussion) {
+      const commentsUrl = `${API_URL}/api/${isUpdate ? 'updates' : 'tasks'}/${id}/comments`;
+      const [dRes, cRes] = await Promise.all([
+        fetch(detailUrl, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(commentsUrl, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      if (!dRes.ok || !cRes.ok) throw new Error('Fetch failed');
+      return { detail: await dRes.json(), comments: await cRes.json() };
+    } else {
+      const dRes = await fetch(detailUrl, { headers: { Authorization: `Bearer ${token}` } });
+      if (!dRes.ok) throw new Error('Fetch failed');
+      return { detail: await dRes.json(), comments: [] };
+    }
+  }, [type, id, token]); // eslint-disable-line
 
-  useEffect(() => { fetchDetailsAndComments(); }, [type, id]); // eslint-disable-line
+  const {
+    data: threadData,
+    loading,
+    setDataAndCache: setThreadData,
+  } = useStaleData(cacheKey, fetcher);
+
+  const detail   = threadData?.detail   ?? null;
+  const comments = threadData?.comments ?? [];
+
+  const setComments = useCallback((updater) => {
+    setThreadData((prev) => {
+      const prevComments = prev?.comments ?? [];
+      const next = typeof updater === 'function' ? updater(prevComments) : updater;
+      return { ...prev, comments: next };
+    });
+  }, [setThreadData]);
+
+  useEffect(() => { hasInitializedScrollRef.current = false; }, [type, id]);
+
   useEffect(() => {
     const handle = (e) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handle);
@@ -427,16 +440,16 @@ const ThreadDrawer = ({ type, id, onClose, allUsers = [] }) => {
       setTypingUsers((prev) => { const n = { ...prev }; if (t) n[userId] = username; else delete n[userId]; return n; });
 
     const onCommentsRead = ({ commentIds, user: reader }) =>
-      setComments((prev) => prev.map((c) => {
+      setComments((prev) => (prev || []).map((c) => {
         if (!commentIds.includes(c._id)) return c;
         if (c.readBy?.some((r) => r._id === reader._id)) return c;
         return { ...c, readBy: [...(c.readBy || []), reader] };
       }));
 
     const updateCh = `${isUpdate ? 'update' : 'task'}:${id}:comment:update`;
-    const onUpdate = (u) => setComments((prev) => prev.map((c) => (c._id === u._id ? u : c)));
+    const onUpdate = (u) => setComments((prev) => (prev || []).map((c) => (c._id === u._id ? u : c)));
     const newCh = `${isUpdate ? 'update' : 'task'}:${id}:comment`;
-    const onNew = (c) => setComments((prev) => (prev.some((x) => x._id === c._id) ? prev : [...prev, c]));
+    const onNew = (c) => setComments((prev) => ((prev || []).some((x) => x._id === c._id) ? (prev || []) : [...(prev || []), c]));
 
     socket.on('thread:typing:update', onTypingUpdate);
     socket.on('comments:read', onCommentsRead);

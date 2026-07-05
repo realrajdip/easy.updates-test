@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Plus, GraduationCap, BookOpen, Users, CheckCircle2, Circle, ArrowLeft,
   Pencil, Trash2, Eye, EyeOff, X, ChevronRight, ChevronUp, ChevronDown,
@@ -13,6 +13,7 @@ import UserAvatar from './UserAvatar';
 import Modal, { useModalTitleId } from './Modal';
 import { BlockRenderer, BlockListEditor, Markdown } from './courses/Blocks';
 import { TaskRunner, TaskTypeEditor, TASK_TYPES, taskTypeMeta } from './courses/TaskTypes';
+import { useStaleData } from '../hooks/useStaleData';
 
 /* ────────────────────────────────────────────────────────────────────── */
 /* Helpers                                                                */
@@ -67,39 +68,40 @@ const tagListFromString = (s) =>
 /* ────────────────────────────────────────────────────────────────────── */
 
 const CoursesTab = ({ allUsers = [] }) => {
+  const { token } = useAuth();
   const { socket } = useSocket();
   const toast = useToast();
   const api = useCourseApi();
-  const [courses, setCourses] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [activeId, setActiveId] = useState(null);
   const [filter, setFilter] = useState('all');
 
-  const fetchCourses = async () => {
-    setLoading(true);
-    try { setCourses(await api('/api/courses')); }
-    catch (e) { console.error(e); toast.error('Could not load tracks.'); }
-    finally { setLoading(false); }
-  };
+  // SWR: show cached course list instantly, refresh silently in background
+  const fetcher = useCallback(async () => api('/api/courses'), [token]); // eslint-disable-line
+  const {
+    data: courses,
+    loading,
+    refresh: refreshCourses,
+    setDataAndCache: setCourses,
+  } = useStaleData('courses', fetcher);
+
+  const safeCourses = courses || [];
 
   const handleInlineEnroll = async (course) => {
     try {
       await api(`/api/courses/${course._id}/enroll`, { method: 'POST' });
       toast.success(`Enrolled in "${course.title}".`);
-      fetchCourses();
+      refreshCourses();
     } catch (e) {
       toast.error(e.message || 'Could not enroll.');
     }
   };
 
-  useEffect(() => { fetchCourses(); /* eslint-disable-next-line */ }, []);
-
   useEffect(() => {
     if (!socket) return;
-    const refresh = () => fetchCourses();
+    const refresh = () => refreshCourses();
     const onDeleted = (id) => {
-      setCourses((prev) => prev.filter((c) => c._id !== id));
+      setCourses((prev) => (prev || []).filter((c) => c._id !== id));
       if (activeId === id) setActiveId(null);
     };
     socket.on('course:new', refresh);
@@ -124,10 +126,10 @@ const CoursesTab = ({ allUsers = [] }) => {
     );
   }
 
-  const mine = courses.filter((c) => c.myRole === 'owner');
-  const managing = courses.filter((c) => c.myRole === 'manager');
-  const enrolled = courses.filter((c) => c.myRole === 'participant');
-  const discover = courses.filter((c) => !c.myRole);
+  const mine = safeCourses.filter((c) => c.myRole === 'owner');
+  const managing = safeCourses.filter((c) => c.myRole === 'manager');
+  const enrolled = safeCourses.filter((c) => c.myRole === 'participant');
+  const discover = safeCourses.filter((c) => !c.myRole);
 
   return (
     <div className="flex flex-col gap-8 animate-fade-in">
@@ -140,7 +142,7 @@ const CoursesTab = ({ allUsers = [] }) => {
             shared craft.
           </h1>
           <p className="text-[15px] text-ink-muted max-w-md tracking-tight">
-            {courses.length === 0
+            {safeCourses.length === 0
               ? 'No tracks yet. Build the first one — onboarding, SOP, or any text-led walkthrough.'
               : `${mine.length + managing.length} you steer · ${enrolled.length} you're in · ${discover.length} to discover.`}
           </p>
@@ -224,7 +226,7 @@ const CoursesTab = ({ allUsers = [] }) => {
         open={showCreate}
         onClose={() => setShowCreate(false)}
         onCreated={(c) => {
-          setCourses((prev) => [c, ...prev]);
+          setCourses((prev) => [c, ...(prev || [])]);
           setTimeout(() => {
             setActiveId(c._id);
           }, 300);

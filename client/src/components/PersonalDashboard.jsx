@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ShieldAlert, CheckCircle2, Clock, Calendar, Check, MessageSquare
 } from 'lucide-react';
@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { useToast } from '../context/ToastContext';
 import { API_URL } from '../config';
+import { useStaleData } from '../hooks/useStaleData';
 
 const toArray = (v) => {
   if (!v) return [];
@@ -17,38 +18,33 @@ const PersonalDashboard = ({ onOpenThread, allUsers = [] }) => {
   const { token, user } = useAuth();
   const { socket } = useSocket();
   const toast = useToast();
-  const [updates, setUpdates] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(true);
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [uRes, tRes] = await Promise.all([
-        fetch(`${API_URL}/api/updates`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_URL}/api/tasks`, { headers: { Authorization: `Bearer ${token}` } }),
-      ]);
-      if (!uRes.ok || !tRes.ok) throw new Error('Workspace fetch failed');
-      setUpdates(await uRes.json());
-      setTasks(await tRes.json());
-    } catch (e) {
-      console.error(e);
-      toast.error('Could not load your workspace.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Read from the shared SWR cache — UpdatesTab and TasksTab already populate these.
+  // Zero extra network requests when switching to Workspace.
+  const updatesFetcher = useMemo(() => async () => {
+    const res = await fetch(`${API_URL}/api/updates`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new Error('Failed');
+    return res.json();
+  }, [token]);
+  const tasksFetcher = useMemo(() => async () => {
+    const res = await fetch(`${API_URL}/api/tasks`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new Error('Failed');
+    return res.json();
+  }, [token]);
 
-  useEffect(() => {
-    fetchData();
-  }, []); // eslint-disable-line
+  const { data: updates, loading: loadingU, setDataAndCache: setUpdates } = useStaleData('updates', updatesFetcher);
+  const { data: tasks,   loading: loadingT, setDataAndCache: setTasks }   = useStaleData('tasks',   tasksFetcher);
+  const loading = loadingU || loadingT;
+
+  const safeUpdates = updates || [];
+  const safeTasks   = tasks   || [];
 
   useEffect(() => {
     if (!socket) return;
-    const onNewU = (u) => setUpdates((prev) => [u, ...prev]);
-    const onAckU = (u) => setUpdates((prev) => prev.map((x) => (x._id === u._id ? u : x)));
-    const onNewT = (t) => setTasks((prev) => [t, ...prev]);
-    const onStatusT = (t) => setTasks((prev) => prev.map((x) => (x._id === t._id ? t : x)));
+    const onNewU    = (u) => setUpdates((prev) => [u, ...(prev || [])]);
+    const onAckU    = (u) => setUpdates((prev) => (prev || []).map((x) => (x._id === u._id ? u : x)));
+    const onNewT    = (t) => setTasks((prev) => [t, ...(prev || [])]);
+    const onStatusT = (t) => setTasks((prev) => (prev || []).map((x) => (x._id === t._id ? t : x)));
     socket.on('update:new', onNewU);
     socket.on('update:acknowledged', onAckU);
     socket.on('task:new', onNewT);
@@ -121,7 +117,7 @@ const PersonalDashboard = ({ onOpenThread, allUsers = [] }) => {
     }
   };
 
-  const my = updates.filter((u) => isRelevantToMe(u) && !isFullyAcknowledged(u));
+  const my = safeUpdates.filter((u) => isRelevantToMe(u) && !isFullyAcknowledged(u));
   const pending = my.filter((u) => {
     const creatorId = u.creator?._id || u.creator;
     return creatorId !== currentUserId && !u.acknowledgedBy.some((a) => (a._id || a) === currentUserId);
@@ -130,7 +126,7 @@ const PersonalDashboard = ({ onOpenThread, allUsers = [] }) => {
     const creatorId = u.creator?._id || u.creator;
     return creatorId === currentUserId || u.acknowledgedBy.some((a) => (a._id || a) === currentUserId);
   });
-  const myTasks = tasks.filter((t) => {
+  const myTasks = safeTasks.filter((t) => {
     const assignedId = t.assignedTo?._id || t.assignedTo;
     return assignedId === currentUserId && t.status !== 'completed';
   });

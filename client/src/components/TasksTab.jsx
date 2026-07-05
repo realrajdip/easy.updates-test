@@ -281,24 +281,34 @@ const TasksTab = ({ onOpenThread, allUsers = [], highlightedTaskId, clearHighlig
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {byStatus[activeStatusTab].map((t) => (
-                <TaskCard
-                  key={t._id}
-                  task={t}
-                  col={activeStatusTab}
-                  meta={STATUS_META[activeStatusTab]}
-                  currentUser={user}
-                  activeMenuId={activeMenuId}
-                  setActiveMenuId={setActiveMenuId}
-                  onEdit={() => setEditingTask(t)}
-                  onDelete={() => setDeleteConfirmId(t._id)}
-                  allUsers={allUsers}
-                  onDiscuss={() => onOpenThread({ type: 'discussion_task', id: t._id })}
-                  onAdvance={(e) => updateStatus(e, t._id, activeStatusTab, 'forward')}
-                  onBack={(e) => updateStatus(e, t._id, activeStatusTab, 'back')}
-                  isHighlighted={t._id === activeHighlightId}
-                />
-              ))}
+              <AnimatePresence mode="popLayout">
+                {byStatus[activeStatusTab].map((t, idx) => (
+                  <motion.div
+                    key={t._id}
+                    layout
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.97 }}
+                    transition={{ duration: 0.2, delay: Math.min(idx * 0.04, 0.28), ease: 'easeOut' }}
+                  >
+                    <TaskCard
+                      task={t}
+                      col={activeStatusTab}
+                      meta={STATUS_META[activeStatusTab]}
+                      currentUser={user}
+                      activeMenuId={activeMenuId}
+                      setActiveMenuId={setActiveMenuId}
+                      onEdit={() => setEditingTask(t)}
+                      onDelete={() => setDeleteConfirmId(t._id)}
+                      allUsers={allUsers}
+                      onDiscuss={() => onOpenThread({ type: 'discussion_task', id: t._id })}
+                      onAdvance={(e) => updateStatus(e, t._id, activeStatusTab, 'forward')}
+                      onBack={(e) => updateStatus(e, t._id, activeStatusTab, 'back')}
+                      isHighlighted={t._id === activeHighlightId}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
           )}
         </div>
@@ -309,7 +319,7 @@ const TasksTab = ({ onOpenThread, allUsers = [], highlightedTaskId, clearHighlig
         onClose={() => setShowModal(false)}
         allUsers={allUsers}
         onCreated={(t) => {
-          if (t) setTasks((prev) => (prev.some((x) => x._id === t._id) ? prev : [t, ...prev]));
+          if (t) setTasks((prev) => ((prev || []).some((x) => x._id === t._id) ? (prev || []) : [t, ...(prev || [])]));
           toast.success('Task assigned.');
         }}
         onFailed={() => toast.error('Could not assign task — please try again.')}
@@ -321,7 +331,7 @@ const TasksTab = ({ onOpenThread, allUsers = [], highlightedTaskId, clearHighlig
         onClose={() => setEditingTask(null)}
         allUsers={allUsers}
         onCreated={(t) => {
-          if (t) setTasks((prev) => prev.map(x => x._id === t._id ? t : x));
+          if (t) setTasks((prev) => (prev || []).map(x => x._id === t._id ? t : x));
           toast.success('Task updated.');
         }}
         onFailed={() => toast.error('Could not update task — please try again.')}

@@ -528,22 +528,24 @@ const Dashboard = () => {
             <PersonalDashboard onOpenThread={handleOpenThread} allUsers={allUsers} />
           </div>
 
-          {/* Lazy-loaded tabs — only mount when first visited */}
-          {activeTab === 'courses' && (
+          {/* Lazy-loaded tabs — chunk downloads once, then persisted via display:none */}
+          <div style={{ display: activeTab === 'courses' ? '' : 'none' }}>
             <Suspense fallback={<TabSpinner />}>
               <CoursesTab allUsers={allUsers} />
             </Suspense>
+          </div>
+          {(user.role === 'admin' || user.role === 'super_user') && (
+            <div style={{ display: activeTab === 'admin' ? '' : 'none' }}>
+              <Suspense fallback={<TabSpinner />}>
+                <AdminPanel />
+              </Suspense>
+            </div>
           )}
-          {activeTab === 'admin' && (user.role === 'admin' || user.role === 'super_user') && (
-            <Suspense fallback={<TabSpinner />}>
-              <AdminPanel />
-            </Suspense>
-          )}
-          {activeTab === 'settings' && (
+          <div style={{ display: activeTab === 'settings' ? '' : 'none' }}>
             <Suspense fallback={<TabSpinner />}>
               <SettingsTab />
             </Suspense>
-          )}
+          </div>
         </main>
       </div>
 

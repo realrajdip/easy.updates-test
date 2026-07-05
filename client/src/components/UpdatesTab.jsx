@@ -361,7 +361,8 @@ const UpdatesTab = ({ onOpenThread, allUsers = [], highlightedUpdateId, clearHig
             </p>
           </div>
         ) : (
-          filtered.map((u) => {
+          <AnimatePresence mode="popLayout">
+            {filtered.map((u, idx) => {
             const currentUserId = user?.id || user?._id;
             const creatorId = u.creator?._id || u.creator;
             const assignees = toArray(u.assignedTo);
@@ -369,10 +370,15 @@ const UpdatesTab = ({ onOpenThread, allUsers = [], highlightedUpdateId, clearHig
               creatorId === currentUserId ||
               u.acknowledgedBy.some((a) => (a._id || a) === currentUserId);
             return (
-              <article
+              <motion.article
                 key={u._id}
                 id={`update-${u._id}`}
-                className={`card flex flex-col gap-4 transition-all duration-200 border ${
+                layout
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.22, delay: Math.min(idx * 0.04, 0.3), ease: 'easeOut' }}
+                className={`card flex flex-col gap-4 transition-colors duration-200 border ${
                   u._id === activeHighlightId
                     ? 'border-accent shadow-[0_0_0_3px_rgba(0,153,255,0.25)] ring-2 ring-accent'
                     : u.isJustAdded ? 'animate-approach ' : ''
@@ -537,9 +543,10 @@ const UpdatesTab = ({ onOpenThread, allUsers = [], highlightedUpdateId, clearHig
                     )}
                   </div>
                 </footer>
-              </article>
+              </motion.article>
             );
-          })
+          })}
+          </AnimatePresence>
         )}
       </div>
 

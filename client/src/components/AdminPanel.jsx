@@ -1,42 +1,39 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Shield, UserCheck, UserX, User, ShieldAlert, ChevronDown } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 import { API_URL } from '../config';
 import ConfirmModal from './ConfirmModal';
+import { useStaleData } from '../hooks/useStaleData';
 
 const AdminPanel = () => {
   const { user, token } = useAuth();
   const showToast = useToast();
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [roleChangeConfig, setRoleChangeConfig] = useState(null);
   const [revokeConfirmUser, setRevokeConfirmUser] = useState(null);
   const [regrantConfirmUser, setRegrantConfirmUser] = useState(null);
 
-  const fetchUsers = async () => {
-    try {
-      const res = await fetch(`${API_URL}/api/admin/users`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error('Failed to fetch users');
-      const data = await res.json();
-      setUsers(data);
-    } catch (error) {
-      showToast(error.message, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchUsers();
+  const fetcher = useMemo(() => async () => {
+    const res = await fetch(`${API_URL}/api/admin/users`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error('Failed to fetch users');
+    return res.json();
   }, [token]);
+
+  const {
+    data: users,
+    loading,
+    refresh: fetchUsers,
+    setDataAndCache: setUsers,
+  } = useStaleData('admin-users', fetcher);
+
+  const safeUsers = users || [];
 
   const handleApprove = async (id) => {
     // Optimistic Update
-    setUsers(prev => prev.map(u => 
+    setUsers(prev => (prev || []).map(u =>
       u._id === id ? { ...u, approvalStatus: 'approved', actedBy: user.username, actionDate: new Date().toISOString() } : u
     ));
 
@@ -56,7 +53,7 @@ const AdminPanel = () => {
 
   const handleReject = async (id) => {
     // Optimistic Update
-    setUsers(prev => prev.map(u => 
+    setUsers(prev => (prev || []).map(u =>
       u._id === id ? { ...u, approvalStatus: 'rejected', actedBy: user.username, actionDate: new Date().toISOString() } : u
     ));
 
@@ -76,7 +73,7 @@ const AdminPanel = () => {
 
   const handleRoleChange = async (id, newRole) => {
     // Optimistic Update
-    setUsers(prev => prev.map(u => 
+    setUsers(prev => (prev || []).map(u =>
       u._id === id ? { ...u, role: newRole } : u
     ));
 
@@ -146,9 +143,9 @@ const AdminPanel = () => {
     return <div className="p-8 text-center text-ink-muted">Loading users...</div>;
   }
 
-  const pendingUsers = users.filter(u => u.approvalStatus === 'pending' && !u.isApproved);
-  const activeUsers = users.filter(u => u.approvalStatus === 'approved' || u.isApproved === true);
-  const historyUsers = users.filter(u => u.approvalStatus === 'approved' || u.approvalStatus === 'rejected');
+  const pendingUsers = safeUsers.filter(u => u.approvalStatus === 'pending' && !u.isApproved);
+  const activeUsers = safeUsers.filter(u => u.approvalStatus === 'approved' || u.isApproved === true);
+  const historyUsers = safeUsers.filter(u => u.approvalStatus === 'approved' || u.approvalStatus === 'rejected');
 
   return (
     <div className="flex flex-col h-full bg-canvas overflow-y-auto">
