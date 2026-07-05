@@ -79,7 +79,7 @@ console.log('Connecting to MongoDB URI:', MONGODB_URI.split('@')[1] ? 'mongodb:/
 mongoose.connect(MONGODB_URI)
   .then(() => {
     console.log('MongoDB connected successfully.');
-    
+
     // Initialize Socket.io presence on Server
     const io = initSocket(server, app);
 
