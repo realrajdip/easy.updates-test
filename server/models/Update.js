@@ -42,4 +42,7 @@ const UpdateSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+UpdateSchema.index({ isPinned: -1, createdAt: -1 });
+UpdateSchema.index({ etaNotificationSent: 1, eta: 1 });
+
 module.exports = mongoose.model('Update', UpdateSchema);

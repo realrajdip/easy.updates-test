@@ -34,4 +34,7 @@ const TaskSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+TaskSchema.index({ createdAt: -1 });
+TaskSchema.index({ etaNotificationSent: 1, status: 1, eta: 1 });
+
 module.exports = mongoose.model('Task', TaskSchema);

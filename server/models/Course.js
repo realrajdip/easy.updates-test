@@ -75,4 +75,9 @@ CourseSchema.methods.roleFor = function (userId) {
   return null;
 };
 
+CourseSchema.index({ creator: 1 });
+CourseSchema.index({ managers: 1 });
+CourseSchema.index({ participants: 1 });
+CourseSchema.index({ isPublished: 1 });
+
 module.exports = mongoose.model('Course', CourseSchema);

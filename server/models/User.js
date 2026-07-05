@@ -86,6 +86,8 @@ const UserSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+UserSchema.index({ status: 1, statusOverride: 1, approvalStatus: 1, isApproved: 1 });
+
 UserSchema.set('toJSON', {
   transform: (doc, ret) => {
     // If username is an email address, strip the domain suffix for client-side rendering

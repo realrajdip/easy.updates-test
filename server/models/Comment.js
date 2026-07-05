@@ -46,4 +46,7 @@ const CommentSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+CommentSchema.index({ updateId: 1, createdAt: 1 }, { sparse: true });
+CommentSchema.index({ taskId: 1, createdAt: 1 }, { sparse: true });
+
 module.exports = mongoose.model('Comment', CommentSchema);
