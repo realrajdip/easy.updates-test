@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Copy, Check, Printer, ShieldAlert, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Copy, Check, Printer, ArrowRight, ShieldCheck } from 'lucide-react';
 import OTPInput from '../components/OTPInput';
 
 const Setup2FA = ({ setupData }) => {
@@ -49,7 +49,6 @@ const Setup2FA = ({ setupData }) => {
 
           {error && (
             <div className="banner-error">
-              <ShieldAlert className="h-4 w-4 mt-[2px] flex-shrink-0" />
               <p>{error}</p>
             </div>
           )}

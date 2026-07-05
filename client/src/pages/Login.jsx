@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
-import { ArrowRight, RefreshCw, Key, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, RefreshCw, Key, CheckCircle2 } from 'lucide-react';
 import OTPInput from '../components/OTPInput';
 
 const TABS = [
@@ -140,7 +140,6 @@ const Login = () => {
 
               {error && (
                 <div className="banner-error animate-fade-in">
-                  <ShieldAlert className="h-4 w-4 mt-[2px] flex-shrink-0" />
                   <p>{error}</p>
                 </div>
               )}
