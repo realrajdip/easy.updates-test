@@ -280,7 +280,7 @@ const Sidebar = ({ activeTab, onSelectTab, user, onStatusOverrideChange }) => (
 
     <div className="mt-auto">
       <p className="text-center text-[10px] text-ink-dim tracking-[0.18em] uppercase">
-        easy·updates — v1.0
+        easy·updates — v2.0
       </p>
     </div>
   </aside>
